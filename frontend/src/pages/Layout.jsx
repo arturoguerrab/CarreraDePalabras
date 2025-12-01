@@ -4,7 +4,7 @@ import StopContainer from "./StopContainer";
 const Layout = ({ children }) => {
   return (
     <>
-      <StopContainer />
+      {children}
     </>
   );
 };

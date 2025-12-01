@@ -2,41 +2,42 @@ import StopView from "./StopView.jsx";
 import { GoogleGenAI } from "@google/genai";
 import { useEffect, useRef, useState } from "react";
 
-const StopContainer = () => {
+const StopContainer = (entradaDatos) => {
   const [visual, setVisual] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
-  const ENTRADA_DATOS = [
-    {
-      categoria: "Cosas que puedes hacer en el parque",
-      respuesta: [
-        { id_jugador: 1, palabra: "dormir" },
-        { id_jugador: 2, palabra: "bailar" },
-        { id_jugador: 3, palabra: "pelear" },
-        { id_jugador: 4, palabra: " " },
-      ],
-    },
-    {
-      categoria: "Fruta",
-      respuesta: [
-        { id_jugador: 1, palabra: "Anan" },
-        { id_jugador: 2, palabra: "Aguaca" },
-        { id_jugador: 3, palabra: "albaricoque" },
-        { id_jugador: 4, palabra: "Manzana" },
-      ],
-    },
-    {
-      categoria: "Pokemon",
-      respuesta: [
-        { id_jugador: 1, palabra: "picachu" },
-        { id_jugador: 2, palabra: "tortuga" },
-        { id_jugador: 3, palabra: "chikorita" },
-        { id_jugador: 4, palabra: "ash" },
-      ],
-    },
-  ];
+  // const ENTRADA_DATOS = [
+  //   {letra: 'v'},
+  //   {
+  //     categoria: "Cosas que puedes hacer en el parque",
+  //     respuesta: [
+  //       { id_jugador: 1, palabra: "dormir" },
+  //       { id_jugador: 2, palabra: "bailar" },
+  //       { id_jugador: 3, palabra: "pelear" },
+  //       { id_jugador: 4, palabra: " " },
+  //     ],
+  //   },
+  //   {
+  //     categoria: "Fruta",
+  //     respuesta: [
+  //       { id_jugador: 1, palabra: "vananas" },
+  //       { id_jugador: 2, palabra: "Aguaca" },
+  //       { id_jugador: 3, palabra: "albaricoque" },
+  //       { id_jugador: 4, palabra: "Manzana" },
+  //     ],
+  //   },
+  //   {
+  //     categoria: "Pokemon",
+  //     respuesta: [
+  //       { id_jugador: 1, palabra: "picachu" },
+  //       { id_jugador: 2, palabra: "tortuga" },
+  //       { id_jugador: 3, palabra: "chikorita" },
+  //       { id_jugador: 4, palabra: "ash" },
+  //     ],
+  //   },
+  // ];
 
   // Solución para evitar la doble llamada en Strict Mode (propiedad useRef)
   const dataFetchedRef = useRef(false);
@@ -50,7 +51,7 @@ const StopContainer = () => {
       setLoading(true);
       setError(null);
 
-      const entradaJSON = JSON.stringify(ENTRADA_DATOS);
+      const entradaJSON = JSON.stringify(entradaDatos);
 
       const prompt = `
         Actúa como un juez del juego 'STOP' (Tutti Frutti).
@@ -60,9 +61,10 @@ const StopContainer = () => {
 
         INSTRUCCIONES:
         1. Valida si la 'palabra' corresponde a la 'categoria'.
-        2. Sé flexible con ortografía (ej: "picachu" = "Pikachu", "anan" = "Ananá").
-        3. Si la palabra está incompleta se rechaza.
-        4. Palabras vacías o espacios son inválidas.
+        2. Valida que la 'palabra' empiece con la Letra de la ronda.
+        3. Sé flexible con ortografía (ej: "picachu" = "Pikachu") solo si el error no es la primera letra.
+        4. Si la palabra está incompleta siempre se rechaza.
+        5. Palabras vacías o espacios son inválidas.
 
         SALIDA OBLIGATORIA:
         Devuelve ÚNICAMENTE un JSON válido.

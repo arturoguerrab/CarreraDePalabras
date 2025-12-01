@@ -1,6 +1,7 @@
 import Layout from "./pages/Layout";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import StopContainer from "./pages/StopContainer.jsx";
+import GameInputContainer from "./pages/GameInputContainer.jsx";
 
 function App() {
   return (
@@ -8,7 +9,8 @@ function App() {
       {/* <Provider> */}
       <Layout>
         <Routes>
-          <Route path="/" element={<StopContainer/>} />
+          <Route path="/results" element={<StopContainer/>} />
+          <Route path="/" element={<GameInputContainer/>} />
         </Routes>
       </Layout>
     </BrowserRouter>
