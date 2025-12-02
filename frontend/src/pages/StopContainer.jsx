@@ -122,10 +122,10 @@ const StopContainer = (entradaDatos) => {
   }, []); // El effect solo se ejecuta al montar
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-800">
+    <div className="min-h-screen bg-[#090d18] p-4 md:p-8 font-sans">
       <div className="max-w-7xl mx-auto">
         <header className="text-center mb-10">
-          <h1 className="text-4xl md:text-5xl font-extrabold text-indigo-900 mb-3 tracking-tight">
+          <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-3 tracking-tight">
             🛑 Resultados 🛑 
           </h1>
           <p className="text-lg text-slate-500 max-w-2xl mx-auto">

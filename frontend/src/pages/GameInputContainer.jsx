@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import GameInputView from "./GameInputView";
 import StopContainer from "./StopContainer";
+import { StopContext } from "../context/StopContext";
 const categorias = ["Color", "Ciudad", "Animal", "Nombre", "Fruta"];
 const letraInicial = [
   "A",
@@ -32,6 +33,7 @@ const letraInicial = [
 ];
 
 const GameInputContainer = () => {
+  const { timer } = useContext(StopContext);
   const [playerInfo, setPlayerInfo] = useState({});
   const [letra, setLetra] = useState(() => {
     const randomIndex = Math.floor(Math.random() * letraInicial.length);
@@ -63,7 +65,7 @@ const GameInputContainer = () => {
     }));
 
     createPromtObject(datosParaEnviar);
-    setResultsOk(true)
+    setResultsOk(true);
 
     // aquí llamarías a tu función de enviar datos
   };
