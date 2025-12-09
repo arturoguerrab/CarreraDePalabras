@@ -1,80 +1,115 @@
+// Importar módulos
 import express from "express";
-import session from 'express-session';
-import MongoStore from 'connect-mongo';
-import passport from 'passport';
+import session from "express-session";
+import passport from "./passportConfig.js";
+import cors from "cors";
+import "dotenv/config";
+import helmet from "helmet"; 
+import MongoStore from "connect-mongo"; 
+
+// Importacion de servidores
 import { createServer } from "http";
 import { Server } from "socket.io";
+
+// Importacion de base de datos
+import { connectDB } from "./db.js";
+
+// Importacion de rutas
 import mainRouter from "./routes/mainRouter.js";
 import authRouter from "./routes/authRouter.js";
-import "dotenv/config";
-import { connectDB } from "./db.js";
-import cors from "cors";
 
-// 2. Definir Constantes
+// --- Configuración y Constantes ---
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer, {
-  cors: {
-    // Debes especificar el origen exacto de tu cliente React (Vite)
-    origin: "http://localhost:5173",
-    // Métodos permitidos para las peticiones (Socket.IO usa GET y POST)
-    methods: ["GET", "POST"],
-    // Opcional, permite credenciales
-    credentials: true,
-  },
-});
+
+// ENV Variables
 const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET;
+const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+const MONGO_DB_URI = process.env.MONGO_DB_URI;
+const NODE_ENV = process.env.NODE_ENV;
 
+// Verificación de variables de entorno críticas para el funcionamiento
+if (!SESSION_SECRET || !MONGO_DB_URI) {
+	console.error(
+		"❌ Error: Las variables de entorno SESSION_SECRET y MONGO_DB_URI son obligatorias."
+	);
+	process.exit(1);
+}
+
+const io = new Server(httpServer, {
+	cors: {
+		origin: CLIENT_URL,
+		methods: ["GET", "POST"],
+		credentials: true,
+	},
+});
+
+// --- Middlewares ---
+// Middlewares de seguridad y parsing
+app.use(helmet()); 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
-app.use(session({
-    store: MongoStore.create({
-        mongoUrl: process.env.MONGO_DB_KEY,
-        touchAfter: 24 * 3600, // Lazy session update (en segundos)
-    }),
-    secret: process.env.SESSION_SECRET,// Proporciona un valor por defecto si no está en .env
-    resave: false,          // Evita guardar la sesión si no ha cambiado
-    saveUninitialized: false, // Evita guardar sesiones de usuarios no autenticados
-    cookie: {
-        maxAge: 24 * 60 * 60 * 1000, // 24 horas (opcional)
-        secure: process.env.NODE_ENV === 'production', // true en producción (requiere HTTPS)
-        httpOnly: true // Previene acceso desde JavaScript del cliente
-    }
-}));
+app.use(cors({ origin: CLIENT_URL, credentials: true }));
+
+// Configuración de la sesión con almacenamiento en MongoDB para producción
+app.use(
+	session({
+		secret: SESSION_SECRET,
+		resave: false,
+		saveUninitialized: false,
+		// Se usa MongoStore para guardar las sesiones en la base de datos
+		store: MongoStore.create({
+			mongoUrl: MONGO_DB_URI,
+			collectionName: "sessions", // Nombre de la colección para las sesiones
+		}),
+		cookie: {
+			httpOnly: true, // La cookie no es accesible desde JavaScript del cliente
+			secure: NODE_ENV === "production", // Usar cookies seguras en producción (HTTPS)
+			maxAge: 1000 * 60 * 60 * 24, // La sesión dura 1 día
+		},
+	})
+);
+
+// Middlewares de autenticación
 app.use(passport.initialize());
 app.use(passport.session());
-// 4. Rutas
+
+// --- Rutas ---
 app.use("/lobby", mainRouter);
 app.use("/auth", authRouter);
 
-try {
-  await connectDB();
-  io.on("connection", (socket) => {
-    console.log(`Un usuario conectado: ${socket.id}`);
+// --- Lógica de Socket.IO ---
+io.on("connection", (socket) => {
+	console.log(`Un usuario conectado: ${socket.id}`);
 
-    // 1. Unirse a una sala (por ejemplo, 'sala-1')
-    socket.join("sala-de-juego-4-jugadores");
+	// La lógica de Socket.IO podría moverse a su propio módulo para mayor claridad
+	const room = "sala-de-juego-4-jugadores";
+	socket.join(room);
 
-    // 2. Escuchar un evento de movimiento
-    socket.on("movimiento", (data) => {
-      // 3. Enviar el movimiento a todos los demás en la misma sala
-      socket.to("sala-de-juego-4-jugadores").emit("actualizacion_juego", {
-        id: socket.id,
-        posicion: data,
-      });
-    });
+	socket.on("movimiento", (data) => {
+		socket.to(room).emit("actualizacion_juego", {
+			id: socket.id,
+			posicion: data,
+		});
+	});
 
-    socket.on("disconnect", () => {
-      console.log(`Usuario desconectado: ${socket.id}`);
-    });
-  });
+	socket.on("disconnect", () => {
+		console.log(`Usuario desconectado: ${socket.id}`);
+	});
+});
 
-  // 5. Iniciar el Servidor
-  httpServer.listen(PORT, () => {
-    console.log(`Servidor Express/Socket.IO escuchando en puerto ${PORT}`);
-  });
-} catch (error) {
-  console.log(error);
-}
+// --- Inicio del Servidor ---
+const startServer = async () => {
+	try {
+		await connectDB();
+		httpServer.listen(PORT, () => {
+			console.log(`🚀 Servidor Express/Socket.IO escuchando en puerto ${PORT}`);
+		});
+	} catch (error) {
+		console.error("❌ Error al iniciar el servidor:", error);
+		process.exit(1);
+	}
+};
+
+startServer();

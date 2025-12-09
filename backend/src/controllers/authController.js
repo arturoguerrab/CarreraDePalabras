@@ -1,83 +1,85 @@
 import User from "../models/userModel.js";
-import bcrypt from 'bcryptjs';
+import bcrypt from "bcryptjs";
+import passport from "../passportConfig.js";
 
 export const registerUser = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+	try {
+		const { email, password } = req.body;
 
-    // **PASO CRUCIAL:** Generar el hash de la contraseña (usando bcrypt, no mostrado aquí)
-    // const salt = await bcrypt.genSalt(10);
-    // const hashedPassword = await bcrypt.hash(contrasena, salt);
-    // const hashedPassword = contrasena;  Solo para este ejemplo simplificado
-    const salt = await bcrypt.genSalt(10);
-    const hashedPw = await bcrypt.hash(password, salt);
-    // 1. Crear una nueva instancia del modelo (documento)
-    const newUser = new User({
-      email: email,
-      password: hashedPw,
-      rol: "user", // Por defecto
-    });
+		// Hasheo de contraseña
+		const salt = await bcrypt.genSalt(10);
+		const hashedPw = await bcrypt.hash(password, salt);
 
-    // 2. Guardar el documento en la base de datos
-    await newUser.save();
+		// Crea una nueva instancia del modelo
+		const newUser = new User({
+			email: email,
+			password: hashedPw,
+			rol: "user", // Por defecto
+		});
 
-    // 3. Respuesta exitosa
-    res.status(201).json({
-      message: "Usuario registrado exitosamente",
-      user: {
-        id: newUser._id,
-        email: newUser.email,
-        rol: newUser.rol,
-      },
-    });
-  } catch (error) {
-    // Mongoose maneja errores de validación y unicidad (unique)
-    if (error.code === 11000) {
-      return res.status(400).json({ message: "El email ya está registrado." });
-    }
-    res
-      .status(500)
-      .json({ message: "Error interno del servidor", error: error.message });
-  }
+		// Guarda el documento en la base de datos
+		await newUser.save();
+
+		// Respuesta exitosa
+		res.status(201).json({
+			message: "Usuario registrado exitosamente",
+			user: {
+				id: newUser._id,
+				email: newUser.email,
+				rol: newUser.rol,
+			},
+		});
+	} catch (error) {
+		// Mongoose maneja errores de validación y unicidad
+		if (error.code === 11000) {
+			return res.status(400).json({ message: "El email ya está registrado." });
+		}
+		res
+			.status(500)
+			.json({ message: "Error interno del servidor", error: error.message });
+	}
 };
 
-export const loginUser = async (req, res, next) => {
- try {
-        const { email, password } = req.body;
+export const loginUser = (req, res) => {
+	res.status(200).json({
+		message: "Inicio de sesión exitoso",
+		user: {
+			id: req.user._id,
+			email: req.user.email,
+		},
+	});
+};
 
-        // 1. Buscar al usuario por email
-        const user = await User.findOne({ email }).select('+password');
+export const logoutUser = (req, res) => {
+	req.logout((err) => {
+		if (err) {
+			return res
+				.status(500)
+				.json({ message: "Error al cerrar sesión", error: err.message });
+		}
+		console.log("Sesión cerrada exitosamente");
+		res.json({ message: "Sesión cerrada exitosamente" });
+	});
+};
 
-        // 2. Verificar si el usuario existe
-        if (!user) {
-            return res.status(400).json({ message: 'Credenciales inválidas.' });
-        }
+export const getUser = (req, res) => {
+	if (req.isAuthenticated()) {
+		res.status(200).json({
+			isLoggedIn: true,
+			user: req.user,
+		});
+	} else {
+		res.status(200).json({ isLoggedIn: false });
+	}
+};
 
-        // 3. Comparar la contraseña
-        const isMatch = await bcrypt.compare(password, user.password); 
+export const googleAuth = passport.authenticate("google", {
+	scope: ["profile", "email"],
+});
 
-        // 4. Verificar el resultado
-        if (!isMatch) {
-            return res.status(400).json({ message: 'Credenciales inválidas.' });
-        }
-
-        // 5. Usar req.login de Passport para crear la sesión
-        // El usuario se pasará al método serializeUser de Passport
-        req.login(user, (err) => {
-            if (err) {
-                return next(err);
-            }
-            console.log('Inicio de sesión exitoso para:', user.email);
-            res.status(200).json({ 
-                message: 'Inicio de sesión exitoso',
-                user: {
-                    id: user._id,
-                    email: user.email
-                }
-            });
-        });
-
-    } catch (error) {
-        res.status(500).json({ message: 'Error interno del servidor', error: error.message });
-    }
-  }
+export const googleAuthCallback = passport.authenticate("google", {
+	failureRedirect: `${
+		process.env.CLIENT_URL || "http://localhost:5173"
+	}/login?error=google`,
+	successRedirect: `${process.env.CLIENT_URL || "http://localhost:5173"}/lobby`,
+});

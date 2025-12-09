@@ -5,11 +5,11 @@ import mongoose from "mongoose";
 const userSchema = new mongoose.Schema(
   {
     // Campo 'nombre'
-    // nombre: {
-    //     type: String,
-    //     required: [true, 'El nombre es obligatorio'],
-    //     trim: true, // Elimina espacios en blanco al inicio y al final
-    // },
+    nombre: {
+        type: String,
+        required: false, // Es opcional, puede que un usuario se registre solo con email o venga de un proveedor OAuth
+        trim: true, // Elimina espacios en blanco al inicio y al final
+    },
 
     // Campo 'email'
     email: {

@@ -1,34 +1,45 @@
 import Layout from "./components/Layout";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import GameInputContainer from "./components/GameInputContainer.jsx";
 import StopContextProvider from "./context/StopContext.jsx";
 import GameSocket from "./components/GameSocket.jsx";
-import Registro from "./components/registro/Registro.jsx";
-import Login from "./components/registro/Login.jsx";
+import RegisterContainer from "./components/auth/RegisterContainer.jsx";
+import LoginContainer from "./components/auth/LoginContainer.jsx";
 import Lobby from "./components/lobby/lobbyMenu.jsx";
-import ValidateSession from "./components/registro/ValidateSession.jsx";
+import ValidateSession from "./components/auth/ValidateSession.jsx";
 
 function App() {
-  return (
-    <BrowserRouter>
-      <StopContextProvider>
-        <Layout>
-          <Routes>
+	return (
+		<BrowserRouter>
+			<StopContextProvider>
+				<Layout>
+					<Routes>
+						{/* Rutas Públicas */}
+						<Route path="/registro" element={<RegisterContainer />} />
+						<Route path="/login" element={<LoginContainer />} />
 
-            <Route path="/registro" element={<Registro />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="*" element={<ValidateSession />} />
+						{/* Rutas Protegidas */}
+						<Route element={<ValidateSession />}>
+							<Route path="/" element={<Navigate to="/lobby" replace />} />
+							<Route path="/game" element={<GameSocket />} />
+							<Route path="/play" element={<GameInputContainer />} />
+							<Route path="/lobby" element={<Lobby />} />
+						</Route>
 
-            <Route element={<ValidateSession />}>
-              <Route path="/game" element={<GameSocket />} />
-              <Route path="/play" element={<GameInputContainer />} />
-              <Route path="/lobby" element={<Lobby />} />
-            </Route>
-          </Routes>
-        </Layout>
-      </StopContextProvider>
-    </BrowserRouter>
-  );
+						{/* Ruta para páginas no encontradas */}
+						<Route
+							path="*"
+							element={
+								<div style={{ textAlign: "center", marginTop: "50px" }}>
+									<h1>404: Página No Encontrada</h1>
+								</div>
+							}
+						/>
+					</Routes>
+				</Layout>
+			</StopContextProvider>
+		</BrowserRouter>
+	);
 }
 
 export default App;

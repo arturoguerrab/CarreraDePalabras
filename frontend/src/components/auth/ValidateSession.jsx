@@ -6,9 +6,7 @@ import { Navigate, Outlet } from "react-router-dom";
 export const useAuth = () => useContext(StopContext);
 const ValidateSession = () => {
     const { user, isLoading } = useAuth(); // Obtener el estado de autenticación
-    console.log(user) 
-    console.log(isLoading)
-
+    console.log(user, isLoading);
     // 1. Si aún estamos verificando la sesión con el backend, muestra carga
   if (isLoading) return <h1>Cargando sesión...</h1>;
 

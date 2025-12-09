@@ -1,56 +1,81 @@
-import passport from 'passport';
-import User from './models/userModel.js';
-import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
-import "dotenv/config"; // Tu modelo de Mongoose
+// Importaciones
+import "dotenv/config";
+import passport from "passport";
+import User from "./models/userModel.js";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+import { Strategy as LocalStrategy } from "passport-local";
+import bcrypt from "bcryptjs";
 
-// 1. Serialización: Qué guardar en la sesión (solo el ID)
+// Estrategia Local
+passport.use(
+	new LocalStrategy(
+		{
+			usernameField: "email",
+		},
+		async (email, password, done) => {
+			try {
+				const user = await User.findOne({ email }).select("+password");
+				if (!user) {
+					return done(null, false, { message: "Email no registrado." });
+				}
+
+				const isMatch = await bcrypt.compare(password, user.password);
+				if (!isMatch) {
+					return done(null, false, { message: "Contraseña incorrecta." });
+				}
+
+				return done(null, user);
+			} catch (err) {
+				return done(err);
+			}
+		}
+	)
+);
+
+// Serialización: Qué guardar en la sesión (solo el ID)
 passport.serializeUser((user, done) => {
-    // Solo guarda el ID de MongoDB en la sesión
-    // Nota: MongoDB usa _id, no id
-    done(null, user._id); 
+	done(null, user._id);
 });
 
-// 2. Deserialización: Cómo encontrar al usuario a partir del ID de la sesión
+// Deserialización: Cómo encontrar al usuario a partir del ID de la sesión
 passport.deserializeUser(async (id, done) => {
-    try {
-        // Busca el usuario en la DB por su ID
-        const user = await User.findById(id); 
-        done(null, user);
-    } catch (err) {
-        done(err, null);
-    }
+	try {
+		const user = await User.findById(id);
+		done(null, user);
+	} catch (err) {
+		done(err, null);
+	}
 });
 
-passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    // La URL a la que Google enviará al usuario después de la autenticación
-    callbackURL: "/auth/google/callback", 
-    scope: ['profile', 'email'] // Los datos que solicitas a Google
-  },
-  async (accessToken, refreshToken, profile, done) => {
-    try {
-        // 1. Intentar encontrar al usuario por su Google ID
-        let user = await User.findOne({ googleId: profile.id });
+// Estrategia de Google OAuth 2.0
+passport.use(
+	new GoogleStrategy(
+		{
+			clientID: process.env.GOOGLE_CLIENT_ID,
+			clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+			callbackURL: "/auth/google/callback",
+			scope: ["profile", "email", "openid"],
+		},
+		async (accessToken, refreshToken, profile, done) => {
+			try {
+				let user = await User.findOne({ googleId: profile.id });
 
-        if (user) {
-            // Usuario ya existe, iniciar sesión
-            done(null, user); 
-        } else {
-            // 2. Usuario nuevo, crearlo en la DB
-            const newUser = new User({
-                googleId: profile.id,
-                nombre: profile.displayName,
-                email: profile.emails[0].value,
-                // No necesitas contraseña si solo usas Google
-            });
-            await newUser.save();
-            done(null, newUser);
-        }
-    } catch (err) {
-      done(err, null);
-    }
-  }
-));
+				if (user) {
+					return done(null, user);
+				} else {
+					const newUser = new User({
+						googleId: profile.id,
+						nombre: profile.displayName,
+						email: profile.emails[0].value,
+					});
+					await newUser.save();
+					return done(null, newUser);
+				}
+			} catch (err) {
+				return done(err, null);
+			}
+		}
+	)
+);
 
 export default passport;
