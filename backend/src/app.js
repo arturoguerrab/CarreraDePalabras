@@ -17,6 +17,7 @@ import { connectDB } from "./db.js";
 // Importacion de rutas
 import mainRouter from "./routes/mainRouter.js";
 import authRouter from "./routes/authRouter.js";
+import socketHandler from "./socketHandler.js";
 
 // --- Configuración y Constantes ---
 const app = express();
@@ -79,25 +80,8 @@ app.use(passport.session());
 app.use("/lobby", mainRouter);
 app.use("/auth", authRouter);
 
-// --- Lógica de Socket.IO ---
-io.on("connection", (socket) => {
-	console.log(`Un usuario conectado: ${socket.id}`);
-
-	// La lógica de Socket.IO podría moverse a su propio módulo para mayor claridad
-	const room = "sala-de-juego-4-jugadores";
-	socket.join(room);
-
-	socket.on("movimiento", (data) => {
-		socket.to(room).emit("actualizacion_juego", {
-			id: socket.id,
-			posicion: data,
-		});
-	});
-
-	socket.on("disconnect", () => {
-		console.log(`Usuario desconectado: ${socket.id}`);
-	});
-});
+// --- Lógica de Socket.IO (Modularizada) ---
+socketHandler(io);
 
 // --- Inicio del Servidor ---
 const startServer = async () => {

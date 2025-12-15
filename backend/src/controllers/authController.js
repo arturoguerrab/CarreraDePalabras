@@ -66,7 +66,11 @@ export const getUser = (req, res) => {
 	if (req.isAuthenticated()) {
 		res.status(200).json({
 			isLoggedIn: true,
-			user: req.user,
+			user: {
+				id: req.user._id, // Consistently use 'id'
+				email: req.user.email,
+				// Agrega otras propiedades que necesites, como 'rol' si aplica
+			},
 		});
 	} else {
 		res.status(200).json({ isLoggedIn: false });

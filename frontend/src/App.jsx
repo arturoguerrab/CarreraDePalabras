@@ -2,11 +2,11 @@ import Layout from "./components/Layout";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import GameInputContainer from "./components/GameInputContainer.jsx";
 import StopContextProvider from "./context/StopContext.jsx";
-import GameSocket from "./components/GameSocket.jsx";
 import RegisterContainer from "./components/auth/RegisterContainer.jsx";
 import LoginContainer from "./components/auth/LoginContainer.jsx";
-import Lobby from "./components/lobby/lobbyMenu.jsx";
+import Lobby from "./components/lobby/LobbyMenu.jsx";
 import ValidateSession from "./components/auth/ValidateSession.jsx";
+import GameSocket from "./components/GameSocket.jsx";
 
 function App() {
 	return (
@@ -21,9 +21,9 @@ function App() {
 						{/* Rutas Protegidas */}
 						<Route element={<ValidateSession />}>
 							<Route path="/" element={<Navigate to="/lobby" replace />} />
-							<Route path="/game" element={<GameSocket />} />
 							<Route path="/play" element={<GameInputContainer />} />
 							<Route path="/lobby" element={<Lobby />} />
+							<Route path="/socket" element={<GameSocket />} />
 						</Route>
 
 						{/* Ruta para páginas no encontradas */}

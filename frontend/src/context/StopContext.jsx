@@ -1,6 +1,8 @@
 // Importaciones
-import { createContext, useState, useEffect } from "react";
+import { createContext, useState, useEffect, useRef } from "react";
 import stopAPI from "../stopAPI";
+import io from "socket.io-client"; // <-- Importar socket.io-client
+
 // Crecion del contexto
 export const StopContext = createContext();
 
@@ -9,6 +11,7 @@ const StopContextProvider = ({ children }) => {
 	//Estados
 	const [user, setUser] = useState(null);
 	const [isLoading, setIsLoading] = useState(true);
+	const [socket, setSocket] = useState(null); // <-- Nuevo estado para el socket
 
 	useEffect(() => {
 		const checkSession = async () => {
@@ -31,11 +34,46 @@ const StopContextProvider = ({ children }) => {
 		checkSession();
 	}, []);
 
+	// useEffect para gestionar la conexión del socket basada en el estado del usuario
+	useEffect(() => {
+		// Si hay un usuario y no hay un socket, crea la conexión.
+		if (user && !socket) {
+			const SOCKET_SERVER_URL =
+				import.meta.env.VITE_REACT_APP_BACKEND_URL || "http://localhost:3000";
+
+			const newSocket = io(SOCKET_SERVER_URL, {
+				withCredentials: true, // Para enviar cookies de sesión
+				autoConnect: true, // Conectar automáticamente
+			});
+
+			newSocket.on("connect", () => {
+				console.log("Socket conectado por el usuario:", user.email, "con ID:", newSocket.id);
+			});
+
+			newSocket.on("disconnect", (reason) => {
+				console.log("Socket desconectado:", reason);
+			});
+
+			newSocket.on("connect_error", (error) => {
+				console.error("Error de conexión del socket:", error);
+			});
+
+			setSocket(newSocket);
+		}
+		// Si no hay usuario y el socket existe, desconéctalo.
+		else if (!user && socket) {
+			console.log("Usuario no autenticado, desconectando socket.");
+			socket.disconnect();
+			setSocket(null);
+		}
+	}, [user]); // Este efecto depende del estado del 'user'
+
 	const login = async (email, password) => {
 		const response = await stopAPI.post("/auth/login", { email, password });
 		if (response.data.user) {
 			setUser(response.data.user);
 		}
+		// El useEffect [user] se encargará de conectar el socket
 		return response;
 	};
 
@@ -46,17 +84,26 @@ const StopContextProvider = ({ children }) => {
 	const loginWithGoogle = () => {
 		window.location.href = "http://localhost:3000/auth/google";
 	};
-  
+
 	const logout = async () => {
 		try {
 			await stopAPI.get("/auth/logout"); // URL simplificada
 			setUser(null);
+			// El useEffect [user] se encargará de desconectar y limpiar el socket
 		} catch (error) {
 			console.error("Error al cerrar sesión:", error);
 		}
 	};
 
-	const value = { user, isLoading, login, register, loginWithGoogle, logout };
+	const value = {
+		user,
+		isLoading,
+		login,
+		register,
+		loginWithGoogle,
+		logout,
+		socket,
+	}; // <-- Exponer el socket
 	return <StopContext.Provider value={value}>{children}</StopContext.Provider>;
 };
 

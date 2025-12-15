@@ -38,9 +38,9 @@ passport.serializeUser((user, done) => {
 });
 
 // Deserialización: Cómo encontrar al usuario a partir del ID de la sesión
-passport.deserializeUser(async (id, done) => {
+passport.deserializeUser(async (_id, done) => {
 	try {
-		const user = await User.findById(id);
+		const user = await User.findById(_id);
 		done(null, user);
 	} catch (err) {
 		done(err, null);
