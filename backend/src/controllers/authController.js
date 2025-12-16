@@ -1,6 +1,7 @@
 import User from "../models/userModel.js";
 import bcrypt from "bcryptjs";
 import passport from "../passportConfig.js";
+import "dotenv/config";
 
 export const registerUser = async (req, res) => {
 	try {

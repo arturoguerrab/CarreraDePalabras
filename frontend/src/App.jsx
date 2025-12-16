@@ -6,7 +6,8 @@ import RegisterContainer from "./components/auth/RegisterContainer.jsx";
 import LoginContainer from "./components/auth/LoginContainer.jsx";
 import Lobby from "./components/lobby/LobbyMenu.jsx";
 import ValidateSession from "./components/auth/ValidateSession.jsx";
-import GameSocket from "./components/GameSocket.jsx";
+import StopRoomsContainer from "./components/stopModule/StopRoomsContainer.jsx";
+import StopMpContainer from "./components/stopModule/StopMpContainer.jsx";
 
 function App() {
 	return (
@@ -23,7 +24,8 @@ function App() {
 							<Route path="/" element={<Navigate to="/lobby" replace />} />
 							<Route path="/play" element={<GameInputContainer />} />
 							<Route path="/lobby" element={<Lobby />} />
-							<Route path="/socket" element={<GameSocket />} />
+							<Route path="/room" element={<StopRoomsContainer />} />
+							<Route path="/room/:roomId" element={<StopMpContainer/>} />
 						</Route>
 
 						{/* Ruta para páginas no encontradas */}
