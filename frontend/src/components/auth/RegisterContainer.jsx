@@ -5,6 +5,9 @@ import RegisterView from "./RegisterView";
 const RegisterContainer = () => {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
+	const [username, setUsername] = useState("");
+	const [firstName, setFirstName] = useState("");
+	const [lastName, setLastName] = useState("");
 	const [error, setError] = useState("");
 	const [exito, setExito] = useState("");
 	const [loading, setLoading] = useState(false);
@@ -17,8 +20,8 @@ const RegisterContainer = () => {
 		setExito("");
 		setLoading(true);
 
-		if (!email.trim() || !password.trim()) {
-			setError("Completa ambos campos");
+		if (!email.trim() || !password.trim() || !firstName.trim() || !lastName.trim()) {
+			setError("Por favor completa los campos obligatorios (*)");
 			setLoading(false);
 			return;
 		}
@@ -29,10 +32,13 @@ const RegisterContainer = () => {
 		}
 
 		try {
-			await register(email, password); // Llamamos a la función del contexto
+			await register({ email, password, username, firstName, lastName }); // Llamamos a la función del contexto
 			setExito("¡Cuenta creada con éxito! Ya puedes iniciar sesión.");
 			setEmail("");
 			setPassword("");
+			setUsername("");
+			setFirstName("");
+			setLastName("");
 		} catch (err) {
 			if (err.response?.data?.message) {
 				setError(err.response.data.message);
@@ -48,6 +54,12 @@ const RegisterContainer = () => {
 		<RegisterView
 			email={email}
 			setEmail={setEmail}
+			username={username}
+			setUsername={setUsername}
+			firstName={firstName}
+			setFirstName={setFirstName}
+			lastName={lastName}
+			setLastName={setLastName}
 			password={password}
 			setPassword={setPassword}
 			error={error}

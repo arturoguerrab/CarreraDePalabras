@@ -5,7 +5,33 @@ import "dotenv/config";
 
 export const registerUser = async (req, res) => {
 	try {
-		const { email, password } = req.body;
+		const { email, password, username, firstName, lastName } = req.body;
+
+		// Sanitizar username: si es cadena vacía o espacios, lo forzamos a undefined
+		const cleanUsername = (username && username.trim() !== "") ? username.trim() : undefined;
+
+		// Validaciones de campos obligatorios
+		if (!email || !password || !firstName || !lastName) {
+			return res.status(400).json({
+				message: "Faltan campos obligatorios (Nombre, Apellido, Email, Password).",
+			});
+		}
+
+		// Verificar si el email ya existe
+		const existingUser = await User.findOne({ email });
+		if (existingUser) {
+			return res.status(400).json({ message: "El email ya está registrado." });
+		}
+
+		// Verificar username si se proporcionó
+		if (cleanUsername) {
+			const existingUsername = await User.findOne({ username: cleanUsername });
+			if (existingUsername) {
+				return res
+					.status(400)
+					.json({ message: "El nombre de usuario ya está en uso." });
+			}
+		}
 
 		// Hasheo de contraseña
 		const salt = await bcrypt.genSalt(10);
@@ -15,6 +41,9 @@ export const registerUser = async (req, res) => {
 		const newUser = new User({
 			email: email,
 			password: hashedPw,
+			firstName,
+			lastName,
+			username: cleanUsername, // Usamos la variable ya sanitizada
 			rol: "user", // Por defecto
 		});
 
@@ -27,13 +56,17 @@ export const registerUser = async (req, res) => {
 			user: {
 				id: newUser._id,
 				email: newUser.email,
+				username: newUser.username,
+				firstName: newUser.firstName,
+				lastName: newUser.lastName,
 				rol: newUser.rol,
 			},
 		});
 	} catch (error) {
 		// Mongoose maneja errores de validación y unicidad
 		if (error.code === 11000) {
-			return res.status(400).json({ message: "El email ya está registrado." });
+			console.error("Error de duplicado (11000):", error.keyPattern); // Ver en consola qué campo falla
+			return res.status(400).json({ message: "El email o username ya existe." });
 		}
 		res
 			.status(500)
@@ -70,6 +103,9 @@ export const getUser = (req, res) => {
 			user: {
 				id: req.user._id, // Consistently use 'id'
 				email: req.user.email,
+				username: req.user.username,
+				firstName: req.user.firstName,
+				lastName: req.user.lastName,
 				// Agrega otras propiedades que necesites, como 'rol' si aplica
 			},
 		});

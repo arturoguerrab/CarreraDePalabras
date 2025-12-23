@@ -19,6 +19,13 @@ const StopContextProvider = ({ children }) => {
   const [roomId, setRoomId] = useState(null);
   const [players, setPlayers] = useState([]);
   const [gameError, setGameError] = useState(null);
+  const [gameState, setGameState] = useState("lobby"); // 'lobby', 'playing'
+  const [gameLetter, setGameLetter] = useState("");
+  const [gameCategories, setGameCategories] = useState([]); // <-- Nuevo estado para categorías
+  const [gameResults, setGameResults] = useState([]); // <-- Nuevos resultados
+  const [gameScores, setGameScores] = useState({}); // Puntuaciones acumuladas
+  const [isGameOver, setIsGameOver] = useState(false); // Estado de fin de juego
+  const [roundInfo, setRoundInfo] = useState({ current: 0, total: 0 }); // Info de rondas
 
   useEffect(() => {
     const checkSession = async () => {
@@ -84,11 +91,21 @@ const StopContextProvider = ({ children }) => {
       const handleRoomCreated = (newRoomId) => {
         setRoomId(newRoomId);
         setGameError(null);
+        setGameState("lobby");
+        setGameResults([]);
+        setGameScores({});
+        setIsGameOver(false);
+        setRoundInfo({ current: 0, total: 0 });
         navigate(`/room/${newRoomId}`); // 3. Usar la función para navegar
       };
       const handleJoinedRoom = (joinedRoomId) => {
         setRoomId(joinedRoomId);
         setGameError(null);
+        setGameState("lobby");
+        setGameResults([]);
+        setGameScores({});
+        setIsGameOver(false);
+        setRoundInfo({ current: 0, total: 0 });
         navigate(`/room/${joinedRoomId}`); // <-- AÑADIR NAVEGACIÓN AQUÍ
       };
       const handleUpdatePlayerList = (playerList) => {
@@ -97,11 +114,42 @@ const StopContextProvider = ({ children }) => {
       const handleError = (errorMessage) => {
         setGameError(errorMessage);
       };
+      const handleGameStarted = ({ letter, categories }) => {
+        setGameLetter(letter);
+        setGameCategories(categories || []); // Guardar categorías recibidas
+        setGameState("playing");
+      };
+      const handleRoundResults = (data) => {
+        // Manejar tanto el formato antiguo (array) como el nuevo (objeto)
+        if (data.results) {
+          setGameResults(data.results);
+          setGameScores(data.scores);
+          setIsGameOver(data.isGameOver);
+          setRoundInfo({ current: data.round, total: data.totalRounds });
+        } else {
+          setGameResults(data);
+        }
+        setGameState("results");
+      };
+      const handleCalculating = () => {
+        setGameState("calculating");
+      };
+      const handleGameReset = () => {
+        setGameState("lobby");
+        setGameResults([]);
+        setGameScores({});
+        setIsGameOver(false);
+        setRoundInfo({ current: 0, total: 0 });
+      };
 
       socket.on("room_created", handleRoomCreated);
       socket.on("joined_room", handleJoinedRoom);
       socket.on("update_player_list", handleUpdatePlayerList);
       socket.on("error_joining", handleError);
+      socket.on("game_started", handleGameStarted);
+      socket.on("round_results", handleRoundResults);
+      socket.on("calculating_results", handleCalculating);
+      socket.on("game_reset", handleGameReset);
 
       // Limpieza al desmontar o cuando el socket cambie
       return () => {
@@ -109,6 +157,10 @@ const StopContextProvider = ({ children }) => {
         socket.off("joined_room", handleJoinedRoom);
         socket.off("update_player_list", handleUpdatePlayerList);
         socket.off("error_joining", handleError);
+        socket.off("game_started", handleGameStarted);
+        socket.off("round_results", handleRoundResults);
+        socket.off("calculating_results", handleCalculating);
+        socket.off("game_reset", handleGameReset);
       };
     }
 
@@ -128,8 +180,9 @@ const StopContextProvider = ({ children }) => {
     return response;
   };
 
-  const register = async (email, password) => {
-    return await stopAPI.post("/auth/register", { email, password });
+  const register = async (userData) => {
+    console.log("Enviando datos de registro:", userData); // Log para verificar qué se envía
+    return await stopAPI.post("/auth/register", userData);
   };
 
   const loginWithGoogle = () => {
@@ -163,7 +216,36 @@ const StopContextProvider = ({ children }) => {
   const leaveRoom = (room_id) => {
     if (room_id && user) {
       socket?.emit("leave_room", { room_id: room_id, user: user });
+      setRoomId(null);
+      setPlayers([]);
+      setGameState("lobby");
+      setGameResults([]);
+      setGameLetter("");
+      setGameScores({});
+      setIsGameOver(false);
+      setRoundInfo({ current: 0, total: 0 });
+      setGameError(null);
     }
+  };
+
+  const startGame = (room_id, rounds = 5) => {
+    socket?.emit("start_game", { room_id, rounds });
+  };
+
+  const nextRound = (room_id) => {
+    socket?.emit("next_round", room_id);
+  };
+
+  const resetGame = (room_id) => {
+    socket?.emit("reset_game", room_id);
+  };
+
+  const backToLobby = () => {
+    setGameState("lobby");
+    setGameResults([]);
+    setGameScores({});
+    setIsGameOver(false);
+    setRoundInfo({ current: 0, total: 0 });
   };
   // --- Funciones de Interacción con el Juego ---
 
@@ -182,6 +264,17 @@ const StopContextProvider = ({ children }) => {
     createRoom,
     joinRoom,
     leaveRoom,
+    gameState,
+    gameLetter,
+    gameCategories,
+    startGame,
+    gameResults,
+    gameScores,
+    isGameOver,
+    roundInfo,
+    nextRound,
+    resetGame,
+    backToLobby,
   }; // <-- Exponer el socket
   return <StopContext.Provider value={value}>{children}</StopContext.Provider>;
 };

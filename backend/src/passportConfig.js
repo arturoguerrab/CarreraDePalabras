@@ -65,7 +65,9 @@ passport.use(
 				} else {
 					const newUser = new User({
 						googleId: profile.id,
-						nombre: profile.displayName,
+						// username se deja implícito (undefined) para que aplique el índice sparse del modelo
+						firstName: profile.name?.givenName || profile.displayName,
+						lastName: profile.name?.familyName || "",
 						email: profile.emails[0].value,
 					});
 					await newUser.save();

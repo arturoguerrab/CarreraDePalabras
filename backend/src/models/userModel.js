@@ -4,11 +4,24 @@ import mongoose from "mongoose";
 // El Schema define la estructura de los documentos en la colección 'users'.
 const userSchema = new mongoose.Schema(
   {
-    // Campo 'nombre'
-    nombre: {
-        type: String,
-        required: false, // Es opcional, puede que un usuario se registre solo con email o venga de un proveedor OAuth
-        trim: true, // Elimina espacios en blanco al inicio y al final
+    // Campo 'username' (Opcional)
+    username: {
+      type: String,
+      trim: true,
+      unique: true, // Evita usernames duplicados reales
+      sparse: true, // Permite que múltiples usuarios no tengan username (sean undefined)
+      default: undefined,
+      set: (v) => (v === "" ? undefined : v), // Convierte la cadena vacía "" a undefined antes de guardar
+    },
+    // Campo 'firstName'
+    firstName: {
+      type: String,
+      trim: true,
+    },
+    // Campo 'lastName'
+    lastName: {
+      type: String,
+      trim: true,
     },
 
     // Campo 'email'
@@ -62,5 +75,14 @@ const userSchema = new mongoose.Schema(
 // 3. Creación del Modelo
 // Mongoose tomará 'User' y creará una colección llamada 'users' (en plural y minúsculas).
 const User = mongoose.model("User", userSchema);
+
+// --- SOLUCIÓN AL ERROR 400 DE REGISTRO ---
+// Sincronizar índices para asegurar que 'sparse' se aplique correctamente.
+// Esto corrige el error de "duplicado" cuando el username está vacío.
+User.syncIndexes().then(() => {
+  console.log("✅ Índices de usuarios sincronizados correctamente.");
+}).catch(err => {
+  console.error("❌ Error al sincronizar índices:", err);
+});
 
 export default User;
