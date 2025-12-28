@@ -85,16 +85,23 @@ const StopMpContainer = () => {
 
 	if (gameError) {
 		return (
-			<div className="min-h-screen bg-[#090d18] flex items-center justify-center p-4">
-				<div className="bg-[#1e212a] p-8 rounded-2xl shadow-2xl border border-red-500/30 max-w-md w-full text-center">
-					<div className="text-5xl mb-4">🚫</div>
-					<h2 className="text-2xl font-bold text-white mb-2">No puedes entrar</h2>
-					<p className="text-gray-400 mb-8">{gameError}</p>
+			<div className="min-h-screen bg-[#6366f1] flex items-center justify-center px-4 py-12 font-['Press_Start_2P'] relative overflow-hidden">
+				{/* Fondo Cuadriculado */}
+				<div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(#000 2px, transparent 2px), linear-gradient(90deg, #000 2px, transparent 2px)', backgroundSize: '40px 40px' }}></div>
+
+				{/* Decoración */}
+				<div className="absolute top-10 right-10 w-16 h-16 bg-[#ef4444] border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] transform rotate-45"></div>
+				<div className="absolute bottom-10 left-10 w-20 h-8 bg-[#60a5fa] border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] transform -rotate-3"></div>
+
+				<div className="bg-white border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] rounded-3xl p-8 max-w-md w-full text-center relative z-10">
+					<div className="text-8xl mb-6">🚫</div>
+					<h2 className="text-lg text-black mb-4 uppercase leading-relaxed">No puedes entrar</h2>
+					<p className="text-xs text-gray-500 mb-8 uppercase leading-relaxed">{gameError}</p>
 					<button
 						onClick={handleLeave}
-						className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-xl transition-all transform hover:scale-105"
+						className="w-full py-4 bg-[#ef4444] border-4 border-black text-white text-xs uppercase hover:bg-red-500 rounded-xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all"
 					>
-						Volver al Inicio
+						<span className="text-xl mr-2">🏠</span> Volver al Inicio
 					</button>
 				</div>
 			</div>

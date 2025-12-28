@@ -1,4 +1,3 @@
-import Layout from "./components/Layout";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import GameInputContainer from "./components/GameInputContainer.jsx";
 import StopContextProvider from "./context/StopContext.jsx";
@@ -8,11 +7,17 @@ import Lobby from "./components/lobby/LobbyMenu.jsx";
 import ValidateSession from "./components/auth/ValidateSession.jsx";
 import StopRoomsContainer from "./components/stopModule/StopRoomsContainer.jsx";
 import StopMpContainer from "./components/stopModule/StopMpContainer.jsx";
+import RaceCountdown from "./components/RaceCountdown.jsx";
+import NotFoundView from "./components/NotFoundView.jsx";
 
 function App() {
   return (
     <BrowserRouter>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+      `}</style>
       <StopContextProvider>
+        <RaceCountdown />
         <Routes>
           {/* Rutas Públicas */}
           <Route path="/registro" element={<RegisterContainer />} />
@@ -30,11 +35,7 @@ function App() {
           {/* Ruta para páginas no encontradas */}
           <Route
             path="*"
-            element={
-              <div style={{ textAlign: "center", marginTop: "50px" }}>
-                <h1>404: Página No Encontrada</h1>
-              </div>
-            }
+            element={<NotFoundView />}
           />
         </Routes>
       </StopContextProvider>
