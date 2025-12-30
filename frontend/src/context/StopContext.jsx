@@ -185,6 +185,18 @@ const StopContextProvider = ({ children }) => {
     return await stopAPI.post("/auth/register", userData);
   };
 
+  const updateUsername = async (username) => {
+    try {
+      const response = await stopAPI.post("/auth/set-username", { username });
+      if (response.data.user) {
+        setUser(response.data.user); // Actualizamos el usuario localmente para desbloquear la vista
+      }
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const loginWithGoogle = () => {
     window.location.href = `${
       import.meta.env.VITE_REACT_APP_BACKEND_URL || "http://localhost:3000"
@@ -254,6 +266,7 @@ const StopContextProvider = ({ children }) => {
     isLoading,
     login,
     register,
+    updateUsername,
     loginWithGoogle,
     logout,
     socket,
