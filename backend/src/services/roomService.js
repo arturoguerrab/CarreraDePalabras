@@ -26,6 +26,7 @@ export const createRoom = (user, socketId) => {
     isPlaying: false,
     scores: {},
     roundData: [],
+    usedLetters: [],
     config: { totalRounds: 5, currentRound: 1 }
   };
   return roomId;

@@ -19,7 +19,15 @@ const socketHandler = (io) => {
       if (!roomService.getRoom(roomId)) return;
 
       const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-      const randomLetter = alphabet[Math.floor(Math.random() * alphabet.length)];
+      
+      // Filtrar letras ya usadas en esta partida
+      if (!room.usedLetters) room.usedLetters = [];
+      const available = alphabet.split('').filter(l => !room.usedLetters.includes(l));
+      const pool = available.length > 0 ? available : alphabet.split('');
+      
+      const randomLetter = pool[Math.floor(Math.random() * pool.length)];
+      room.usedLetters.push(randomLetter);
+
       const shuffled = [...ALL_CATEGORIES].sort(() => 0.5 - Math.random());
       
       room.currentLetter = randomLetter;
@@ -95,6 +103,7 @@ const socketHandler = (io) => {
       if (room && room.players[0].id === socket.id) {
         room.isPlaying = true;
         room.scores = {};
+        room.usedLetters = []; // Reiniciar letras usadas al empezar partida
         room.config = { totalRounds: rounds, currentRound: 1 };
         startRoundLogic(roomId);
       }
@@ -115,6 +124,7 @@ const socketHandler = (io) => {
         room.isPlaying = false;
         room.scores = {};
         room.roundData = [];
+        room.usedLetters = []; // Reiniciar letras usadas al resetear
         io.to(roomId).emit("game_reset");
       }
     });
