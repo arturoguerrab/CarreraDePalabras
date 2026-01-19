@@ -1,91 +1,96 @@
-// Cargar variables de entorno
-import "dotenv/config";
-
-import { createServer } from "http";
+// --- Imports ---
 import express from "express";
+import { createServer } from "http";
+import { Server } from "socket.io";
 import session from "express-session";
 import cors from "cors";
 import helmet from "helmet";
 import MongoStore from "connect-mongo";
-import { Server } from "socket.io";
 
+// Config & Services
+import config from "./config/env.js";
 import passport from "./passportConfig.js";
 import { connectDB } from "./db.js";
 import authRouter from "./routes/authRouter.js";
 import socketHandler from "./socketHandler.js";
 
-// --- Configuración y Constantes ---
+// --- App Initialization ---
 const app = express();
 const httpServer = createServer(app);
 
-// ENV Variables
-const PORT = process.env.PORT || 3000;
-const SESSION_SECRET = process.env.SESSION_SECRET;
-const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
-const MONGO_DB_URI = process.env.MONGO_DB_URI;
-const NODE_ENV = process.env.NODE_ENV;
-
-// Verificación de variables de entorno críticas para el funcionamiento
-if (!SESSION_SECRET || !MONGO_DB_URI) {
-  console.error(
-    "❌ Error: Las variables de entorno SESSION_SECRET y MONGO_DB_URI son obligatorias."
-  );
-  process.exit(1);
-}
-
+// Socket.IO Setup
 const io = new Server(httpServer, {
   cors: {
-    origin: CLIENT_URL,
+    origin: config.CLIENT_URL,
     methods: ["GET", "POST"],
     credentials: true,
   },
 });
 
 // --- Middlewares ---
-// Middlewares de seguridad y parsing
+
+// Foundation Security & Parsing
 app.use(helmet());
+app.use(cors({ origin: config.CLIENT_URL, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors({ origin: CLIENT_URL, credentials: true }));
 
-// Configuración de la sesión con almacenamiento en MongoDB para producción
+// Session Management
 app.use(
   session({
-    secret: SESSION_SECRET,
+    secret: config.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    // Se usa MongoStore para guardar las sesiones en la base de datos
     store: MongoStore.create({
-      mongoUrl: MONGO_DB_URI,
-      collectionName: "sessions", // Nombre de la colección para las sesiones
+      mongoUrl: config.MONGO_DB_URI,
+      collectionName: "sessions",
     }),
     cookie: {
-      httpOnly: true, // La cookie no es accesible desde JavaScript del cliente
-      secure: NODE_ENV === "production", // Usar cookies seguras en producción (HTTPS)
-      maxAge: 1000 * 60 * 60 * 24, // La sesión dura 1 día
+      httpOnly: true,
+      secure: config.NODE_ENV === "production",
+      maxAge: 1000 * 60 * 60 * 24, // 1 day
     },
   })
 );
 
-// Middlewares de autenticación
+// Authentication (Passport)
 app.use(passport.initialize());
 app.use(passport.session());
 
-// --- Rutas ---
+// --- Routes ---
+
+// Local Health Check
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// Auth Routes
 app.use("/auth", authRouter);
 
-// --- Lógica de Socket.IO (Modularizada) ---
+// Socket.IO Logic
 socketHandler(io);
 
-// --- Inicio del Servidor ---
+// --- Error Handling ---
+app.use((err, req, res, next) => {
+  console.error("❌ App Error:", err.stack);
+  res.status(err.status || 500).json({
+    error: {
+      message: err.message || "Internal Server Error",
+      ...(config.NODE_ENV === "development" && { stack: err.stack }),
+    },
+  });
+});
+
+// --- Server Startup ---
 const startServer = async () => {
   try {
     await connectDB();
-    httpServer.listen(PORT, () => {
-      console.log(`🚀 Servidor Express/Socket.IO escuchando en puerto ${PORT}`);
+    httpServer.listen(config.PORT, () => {
+      console.log(`🚀 Servidor listo en ${config.SERVER_URL}`);
+      console.log(`📡 Socket.IO habilitado para: ${config.CLIENT_URL}`);
     });
   } catch (error) {
-    console.error("❌ Error al iniciar el servidor:", error);
+    console.error("❌ Error fatal al iniciar:", error);
     process.exit(1);
   }
 };

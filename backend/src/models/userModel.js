@@ -1,14 +1,19 @@
 import mongoose from "mongoose";
 
+/**
+ * User Schema: Defines the structure and validations for the user document.
+ */
 const userSchema = new mongoose.Schema(
   {
+    // username is optional initially for Google OAuth users.
+    // sparse: true allows multiple "undefined" values while maintaining uniqueness for strings.
     username: {
       type: String,
       trim: true,
       unique: true,
       sparse: true,
       default: undefined,
-      set: (v) => (v === "" ? undefined : v),
+      set: (v) => (v === "" ? undefined : v), // Convert empty strings to undefined to avoid duplicate key errors.
     },
     firstName: {
       type: String,
@@ -26,13 +31,14 @@ const userSchema = new mongoose.Schema(
       trim: true,
       match: [/.+@.+\..+/, "Por favor, introduce un email válido"],
     },
+    // Password is only required if not using Google OAuth.
     password: {
       type: String,
       required: function () {
         return !this.googleId;
       },
       minlength: 6,
-      select: false,
+      select: false, // Ensures password isn't returned in queries by default for safety.
     },
     googleId: {
       type: String,
@@ -46,7 +52,7 @@ const userSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true,
+    timestamps: true, // Automatically adds createdAt and updatedAt fields.
   }
 );
 

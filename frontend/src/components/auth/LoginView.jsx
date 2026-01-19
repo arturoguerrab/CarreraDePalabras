@@ -1,6 +1,10 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
+/**
+ * LOGIN VIEW
+ * Renderiza la interfaz de inicio de sesión con estilo retro arcade.
+ */
 const LoginView = ({
   email,
   setEmail,
@@ -27,6 +31,7 @@ const LoginView = ({
           <h1 className="text-2xl text-black mb-8 uppercase drop-shadow-sm">ENTRAR</h1>
           <p className="text-xs text-gray-500 mb-6 uppercase">Acceso Jugador</p>
 
+          {/* Alerta de Error */}
           {error && (
             <div className="mb-6 p-2 bg-red-100 border-4 border-black text-red-600 text-xs uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)]">
               ⚠️ {error}
@@ -34,27 +39,23 @@ const LoginView = ({
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="relative group">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-gray-100 border-4 border-black p-3 text-black text-base md:text-sm focus:bg-white focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] transition-all outline-none rounded-xl placeholder-gray-400"
-                placeholder="Email"
-                required
-              />
-            </div>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-gray-100 border-4 border-black p-3 text-black text-base md:text-sm focus:bg-white focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] transition-all outline-none rounded-xl placeholder-gray-400"
+              placeholder="Email"
+              required
+            />
 
-            <div className="relative group">
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-gray-100 border-4 border-black p-3 text-black text-base md:text-sm focus:bg-white focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] transition-all outline-none rounded-xl placeholder-gray-400"
-                placeholder="Contraseña"
-                required
-              />
-            </div>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-gray-100 border-4 border-black p-3 text-black text-base md:text-sm focus:bg-white focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] transition-all outline-none rounded-xl placeholder-gray-400"
+              placeholder="Contraseña"
+              required
+            />
 
             <button
               type="submit"
@@ -67,12 +68,14 @@ const LoginView = ({
             </button>
           </form>
 
+          {/* Separador */}
           <div className="relative flex py-6 items-center opacity-50">
             <div className="flex-grow border-t-4 border-black border-dashed"></div>
             <span className="flex-shrink-0 mx-4 text-black text-[10px] uppercase">O usa Google</span>
             <div className="flex-grow border-t-4 border-black border-dashed"></div>
           </div>
 
+          {/* Google Auth */}
           <button
             onClick={loginWithGoogle}
             disabled={loading}
@@ -83,16 +86,14 @@ const LoginView = ({
             {loading ? "..." : "Google"}
           </button>
 
-          <div className="mt-8 text-center">
-            <p className="text-[10px] text-gray-500">
-              ¿No tienes carnet?{" "}
-              <Link
-                to="/registro"
-                className="text-blue-600 hover:text-blue-800 underline decoration-wavy decoration-2"
-              >
-                Registrarse
-              </Link>
-            </p>
+          <div className="mt-8 text-center text-[10px] text-gray-500">
+            ¿No tienes carnet?{" "}
+            <Link
+              to="/registro"
+              className="text-blue-600 hover:text-blue-800 underline decoration-wavy decoration-2"
+            >
+              Registrarse
+            </Link>
           </div>
         </div>
       </div>

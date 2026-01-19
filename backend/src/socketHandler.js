@@ -1,205 +1,209 @@
-import { ALL_CATEGORIES } from "./config/gameConstants.js";
 import { processRoundResults } from "./services/aiJudgeService.js";
 import * as roomService from "./services/roomService.js";
 
 /**
- * Maneja la lógica de eventos de Socket.IO.
- * @param {import('socket.io').Server} io - La instancia del servidor de Socket.IO.
+ * SOCKET HANDLER
+ * Manages all real-time communication events for the game.
  */
 const socketHandler = (io) => {
-  // Helper para iniciar una ronda (evita duplicar código en start_game y next_round)
-  const startRoundLogic = (roomId) => {
+  
+  /**
+   * Helper: Start a round with a countdown.
+   */
+  const startRoundWithCountdown = (roomId) => {
     const room = roomService.getRoom(roomId);
     if (!room) return;
 
+    roomService.resetReadiness(roomId); // Reset ready status when round starts
     io.to(roomId).emit("start_countdown", 3);
 
-    setTimeout(() => {
-      // Verificar que la sala siga existiendo tras el timeout
-      if (!roomService.getRoom(roomId)) return;
+    setTimeout(async () => {
+      const roomData = roomService.prepareNextRound(roomId);
+      if (!roomData) return;
 
-      const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-      
-      // Filtrar letras ya usadas en esta partida
-      if (!room.usedLetters) room.usedLetters = [];
-      const available = alphabet.split('').filter(l => !room.usedLetters.includes(l));
-      const pool = available.length > 0 ? available : alphabet.split('');
-      
-      const randomLetter = pool[Math.floor(Math.random() * pool.length)];
-      room.usedLetters.push(randomLetter);
-
-      const shuffled = [...ALL_CATEGORIES].sort(() => 0.5 - Math.random());
-      
-      room.currentLetter = randomLetter;
-      room.currentCategories = shuffled.slice(0, 8);
-      room.roundData = [];
-      
+      emitPlayerList(roomId, room.players); // Notify reset ONCE the round starts
       io.to(roomId).emit("game_started", {
-        letter: room.currentLetter,
-        categories: room.currentCategories,
+        letter: roomData.letter,
+        categories: roomData.categories,
       });
     }, 3000);
   };
 
-  // Función auxiliar para verificar si todos respondieron
+  /**
+   * Helper: Emit updated player list to a room.
+   */
+  const emitPlayerList = (roomId, players) => {
+    io.to(roomId).emit("update_player_list", players.map(p => ({
+      email: p.email,
+      displayName: p.username || p.firstName || p.email,
+      ready: p.ready
+    })));
+  };
+
+  /**
+   * Helper: Checks if all players submitted their answers.
+   */
   const checkRoundComplete = async (roomId) => {
     const room = roomService.getRoom(roomId);
     if (!room || room.isCalculating) return;
 
-    // Si tenemos respuestas de todos los jugadores conectados
-    if (room.roundData.length >= room.players.length) {
+    if (room.isPlaying && room.currentCategories?.length > 0 && room.roundData.length >= room.players.length) {
       await processRoundResults(io, roomId, room);
     }
   };
 
-  io.on("connection", (socket) => {
-    console.log(`Un usuario conectado: ${socket.id}`);
+  /**
+   * Helper: Handles the logic for toggling a player's ready status
+   * and checking if the game/round should start.
+   */
+  const handleToggleReady = (socket, roomId) => {
+    const room = roomService.getRoom(roomId);
+    if (!room) return;
 
-    // Evento para crear una nueva sala de juego
+    console.log(`🙋 Player ${socket.id} toggled ready in room ${roomId}`);
+    roomService.togglePlayerReady(roomId, socket.id);
+    emitPlayerList(roomId, room.players);
+
+    // Check if all are ready to proceed
+    const allReady = room.players.length > 0 && room.players.every(p => p.ready);
+    
+    if (allReady) {
+      console.log(`✅ All players ready in room ${roomId}. Starting...`);
+      if (!room.isPlaying) {
+        room.isPlaying = true;
+        room.scores = {};
+        room.usedLetters = [];
+        room.config.currentRound = 1;
+      }
+      startRoundWithCountdown(roomId);
+    }
+  };
+
+  io.on("connection", (socket) => {
+    console.log(`🔌 New connection: ${socket.id}`);
+
+    /**
+     * Creation & Joining
+     */
     socket.on("create_room", (user) => {
       const roomId = roomService.createRoom(user, socket.id);
       socket.join(roomId);
       const room = roomService.getRoom(roomId);
 
-      console.log(`Usuario ${user.email} creó y se unió a la sala ${roomId}`);
-      io.to(roomId).emit(
-        "update_player_list",
-        room.players.map((p) => ({
-          email: p.email,
-          displayName: p.username || p.firstName || p.email
-        }))
-      );
+      emitPlayerList(roomId, room.players);
       socket.emit("room_created", roomId);
     });
 
-    // Evento para unirse a una sala existente
-    socket.on("join_room", (data) => {
-      const { room_id, user } = data;
+    socket.on("join_room", ({ room_id, user }) => {
       const result = roomService.joinRoom(room_id, user, socket.id);
-
       if (result.error) {
-        socket.emit("error_joining", result.error);
-        return;
+        return socket.emit("error_joining", result.error);
       }
 
       socket.join(room_id);
-      console.log(`Usuario ${user.email} se unió a la sala ${room_id}`);
       socket.emit("joined_room", room_id);
-
-      io.to(room_id).emit(
-        "update_player_list",
-        result.room.players.map((p) => ({
-          email: p.email,
-          displayName: p.username || p.firstName || p.email
-        }))
-      );
+      emitPlayerList(room_id, result.room.players);
     });
 
-    // Evento para iniciar el juego
+    /**
+     * Game Lifecycle
+     */
+    socket.on("toggle_ready", (roomId) => {
+      handleToggleReady(socket, roomId);
+    });
+
     socket.on("start_game", (data) => {
-      const { room_id: roomId, rounds } = typeof data === 'object' ? data : { room_id: data, rounds: 5 };
-      const room = roomService.getRoom(roomId);
-      
-      if (room && room.players[0].id === socket.id) {
-        room.isPlaying = true;
-        room.scores = {};
-        room.usedLetters = []; // Reiniciar letras usadas al empezar partida
-        room.config = { totalRounds: rounds, currentRound: 1 };
-        startRoundLogic(roomId);
+      try {
+        console.log(`🎮 Start Game requested via socket ${socket.id}`, data);
+        const roomId = typeof data === 'object' ? data.room_id : data;
+        const room = roomService.getRoom(roomId);
+        
+        if (room) {
+           if (typeof data === 'object' && data.rounds) {
+              const r = Number(data.rounds);
+              if (!isNaN(r)) {
+                 room.config.totalRounds = r;
+                 console.log(`✅ Room ${roomId} rounds set to ${r}`);
+              }
+           }
+           // Decoupled logic: start_game ONLY sets configuration.
+           // The frontend must call toggle_ready explicitly afterwards.
+           console.log(`✅ Room ${roomId} configured. Waiting for toggle_ready...`);
+        } else {
+           console.error(`❌ Room ${roomId} not found for start_game`);
+        }
+      } catch (err) {
+        console.error("❌ Error in start_game handler:", err);
       }
     });
 
-    // Evento para siguiente ronda
     socket.on("next_round", (roomId) => {
-      const room = roomService.getRoom(roomId);
-      if (room && room.players[0].id === socket.id) {
-        startRoundLogic(roomId);
-      }
+      handleToggleReady(socket, roomId);
     });
 
-    // Evento para reiniciar el juego (volver al lobby)
     socket.on("reset_game", (roomId) => {
       const room = roomService.getRoom(roomId);
-      if (room && room.players[0].id === socket.id) {
+      if (room) {
         room.isPlaying = false;
         room.scores = {};
         room.roundData = [];
-        room.usedLetters = []; // Reiniciar letras usadas al resetear
+        room.usedLetters = [];
+        room.config.currentRound = 1;
+        roomService.resetReadiness(roomId);
         io.to(roomId).emit("game_reset");
+        emitPlayerList(roomId, room.players);
       }
     });
 
-    // Alguien presionó STOP
+    /**
+     * Round Actions
+     */
     socket.on("stop_round", ({ roomId, answers }) => {
       const room = roomService.getRoom(roomId);
-      if (room) {
-        // 2. Evitar duplicados: Si este socket ya envió datos, ignorar.
-        if (room.roundData.find((d) => d.playerId === socket.id)) return;
+      if (!room) return socket.emit("error_joining", "La sala ha expirado.");
+      
+      if (room.roundData.find(d => d.playerId === socket.id)) return;
 
-        room.roundData.push({ playerId: socket.id, answers });
-        // Avisar a los demás que envíen sus respuestas YA
-        socket.to(roomId).emit("force_submit");
-        checkRoundComplete(roomId);
-      } else {
-        // Si la sala no existe (ej. reinicio de servidor), avisar al cliente para desbloquearlo
-        socket.emit("error_joining", "La sala no existe o ha expirado.");
-      }
+      // Find the player who pressed STOP
+      const stopper = room.players.find(p => p.id === socket.id);
+      const stopperName = stopper ? (stopper.username || stopper.firstName || stopper.email) : "Alguien";
+
+      room.roundData.push({ playerId: socket.id, answers });
+      
+      // Broadcast who pressed STOP to all other players
+      socket.to(roomId).emit("force_submit", { stoppedBy: stopperName });
+      
+      // Store stopper info for results
+      room.stoppedBy = stopperName;
+      
+      checkRoundComplete(roomId);
     });
 
-    // Recibir respuestas forzadas de los demás
     socket.on("submit_answers", ({ roomId, answers }) => {
       const room = roomService.getRoom(roomId);
-      if (room) {
-        // Evitar duplicados si el socket envía varias veces
-        const exists = room.roundData.find((d) => d.playerId === socket.id);
-        if (!exists) {
-          room.roundData.push({ playerId: socket.id, answers });
-          checkRoundComplete(roomId);
-        }
+      if (room && !room.roundData.find(d => d.playerId === socket.id)) {
+        room.roundData.push({ playerId: socket.id, answers });
+        checkRoundComplete(roomId);
       }
     });
 
-    // Evento para salir de una sala voluntariamente (navegación)
-    socket.on("leave_room", (data) => {
-      const { room_id, user } = data;
+    /**
+     * Disconnection Handling
+     */
+    socket.on("leave_room", ({ room_id, user }) => {
       const room = roomService.removePlayer(room_id, socket.id);
-      
       if (room) {
         socket.leave(room_id);
-        console.log(
-          `Usuario ${user.email} salió voluntariamente de la sala ${room_id}`
-        );
-
-        io.to(room_id).emit(
-          "update_player_list",
-          room.players.map((p) => ({
-            email: p.email,
-            displayName: p.username || p.firstName || p.email
-          }))
-        );
-
-        // Verificar si al salir este jugador, la ronda debe terminar (si los demás ya respondieron)
+        emitPlayerList(room_id, room.players);
         checkRoundComplete(room_id);
       }
     });
 
     socket.on("disconnect", () => {
-      console.log(`Usuario desconectado: ${socket.id}`);
       const result = roomService.removePlayerBySocketId(socket.id);
-      
       if (result) {
-        const { roomId, room, player } = result;
-        console.log(`Jugador ${player.email} salió de la sala ${roomId}`);
-        
-        io.to(roomId).emit(
-          "update_player_list",
-          room.players.map((p) => ({
-            email: p.email,
-            displayName: p.username || p.firstName || p.email
-          }))
-        );
-
-        // Verificar si al desconectarse este jugador, la ronda debe terminar
+        const { roomId, room } = result;
+        emitPlayerList(roomId, room.players);
         checkRoundComplete(roomId);
       }
     });

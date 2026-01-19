@@ -1,16 +1,20 @@
 import mongoose from "mongoose";
 
+/**
+ * ValidatedResponse Schema
+ * Stores results from AI validations to avoid redundant API calls.
+ */
 const validatedResponseSchema = new mongoose.Schema({
   category: { type: String, required: true },
   letter: { type: String, required: true },
-  word: { type: String, required: true }, // Se guardará en minúsculas para normalizar
+  word: { type: String, required: true }, // Normalized lowercase word
   isValid: { type: Boolean, required: true },
-  score: { type: Number, default: 1 }, // 1.0 = Perfecto, 0.5 = Typo/Casi, 0 = Inválido
-  reason: { type: String }, // Motivo si es inválido
+  score: { type: Number, default: 1 }, // 1.0 = Perfect, 0.5 = Partial/Typo, 0 = Invalid
+  reason: { type: String }, // Explanation for the validation result
   createdAt: { type: Date, default: Date.now },
 });
 
-// Índice compuesto único: Una palabra en una categoría y letra solo se valida una vez
+// Composite unique index ensures each word/category/letter combo is only validated once.
 validatedResponseSchema.index({ category: 1, letter: 1, word: 1 }, { unique: true });
 
 const ValidatedResponse = mongoose.model("ValidatedResponse", validatedResponseSchema);

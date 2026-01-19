@@ -3,14 +3,25 @@ import { StopContext } from "../../context/StopContext.jsx";
 import { Navigate, Outlet } from "react-router-dom";
 import SetUsernameContainer from "./SetUsernameContainer";
 
+/**
+ * VALIDATE SESSION
+ * Middleware de cliente que verifica si hay un usuario logueado.
+ * Si el usuario existe pero no tiene nickname (ej. tras Google OAuth), fuerza la vista de SetUsername.
+ */
 const ValidateSession = () => {
   const { user, isLoading } = useContext(StopContext);
 
-  if (isLoading) return <h1>Cargando sesión...</h1>;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#6366f1] flex items-center justify-center font-['Press_Start_2P']">
+        <h2 className="text-white text-xs animate-pulse">CARGANDO SESIÓN...</h2>
+      </div>
+    );
+  }
 
   if (!user) return <Navigate to="/login" replace />;
 
-  // Si el usuario está logueado (ej. Google) pero no tiene username configurado
+  // Caso: Usuario logueado sin nickname (ej. primer login con Google)
   if (!user.username) {
     return <SetUsernameContainer />;
   }

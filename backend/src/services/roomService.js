@@ -1,45 +1,50 @@
 import { customAlphabet } from "nanoid";
+import { ALL_CATEGORIES } from "../config/gameConstants.js";
 
-// Generador de IDs numéricos de 4 dígitos
+// Generator for 4-digit numeric room IDs
 const generateRoomId = customAlphabet("0123456789", 4);
 
-// Estado en memoria de las salas
+// In-memory state for active game rooms
 const rooms = {};
 
 /**
- * Obtiene una sala por su ID.
+ * Retrieves a room by its ID.
  */
 export const getRoom = (roomId) => rooms[roomId];
 
 /**
- * Crea una nueva sala y añade al creador.
+ * Creates a new room and sets the initial state for the creator.
  */
 export const createRoom = (user, socketId) => {
   const roomId = generateRoomId();
   rooms[roomId] = {
-    players: [{ 
-      id: socketId, 
-      email: user.email, 
-      username: user.username, 
-      firstName: user.firstName 
+    players: [{
+      id: socketId,
+      email: user.email,
+      username: user.username,
+      firstName: user.firstName,
+      ready: false
     }],
     isPlaying: false,
+    isCalculating: false,
     scores: {},
     roundData: [],
     usedLetters: [],
+    currentLetter: "",
+    currentCategories: [],
     config: { totalRounds: 5, currentRound: 1 }
   };
   return roomId;
 };
 
 /**
- * Intenta unir un jugador a una sala.
+ * Attempts to add a player to a room. Handles reconnections.
  */
 export const joinRoom = (roomId, user, socketId) => {
   const room = rooms[roomId];
   if (!room) return { error: "La sala no existe." };
 
-  // Cancelar eliminación si estaba programada
+  // Cancel deletion if someone joins back
   if (room.deleteTimeout) {
     clearTimeout(room.deleteTimeout);
     delete room.deleteTimeout;
@@ -47,19 +52,20 @@ export const joinRoom = (roomId, user, socketId) => {
 
   const existingPlayer = room.players.find((p) => p.email === user.email);
 
-  // Bloquear entrada si la partida ya empezó y es un usuario nuevo
+  // Prevent joining if game is already in progress and player is new
   if (room.isPlaying && !existingPlayer) {
     return { error: "La partida ya ha comenzado. No puedes entrar." };
   }
 
   if (existingPlayer) {
-    existingPlayer.id = socketId; // Actualizar socket (reconectado)
+    existingPlayer.id = socketId; // Update socket ID on reconnection
   } else {
     room.players.push({ 
       id: socketId, 
       email: user.email, 
       username: user.username, 
-      firstName: user.firstName 
+      firstName: user.firstName,
+      ready: false
     });
   }
 
@@ -67,8 +73,34 @@ export const joinRoom = (roomId, user, socketId) => {
 };
 
 /**
- * Maneja la desconexión o salida de un jugador.
- * Retorna la sala afectada para notificar a los demás.
+ * Prepares the next round's data (letter and categories).
+ * Moved from socketHandler to keep services focused on logic.
+ */
+export const prepareNextRound = (roomId) => {
+  const room = rooms[roomId];
+  if (!room) return null;
+
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const availableLetters = alphabet.split('').filter(l => !room.usedLetters.includes(l));
+  const pool = availableLetters.length > 0 ? availableLetters : alphabet.split('');
+  
+  const randomLetter = pool[Math.floor(Math.random() * pool.length)];
+  room.usedLetters.push(randomLetter);
+
+  const shuffledCategories = [...ALL_CATEGORIES].sort(() => 0.5 - Math.random());
+  
+  room.currentLetter = randomLetter;
+  room.currentCategories = shuffledCategories.slice(0, 8);
+  room.roundData = [];
+
+  return {
+    letter: room.currentLetter,
+    categories: room.currentCategories
+  };
+};
+
+/**
+ * Removes a player from a room. Schedules room deletion if empty.
  */
 export const removePlayer = (roomId, socketId) => {
   const room = rooms[roomId];
@@ -77,18 +109,13 @@ export const removePlayer = (roomId, socketId) => {
   const index = room.players.findIndex((p) => p.id === socketId);
   if (index !== -1) {
     room.players.splice(index, 1);
-    
-    // Si la sala queda vacía, programar eliminación
-    if (room.players.length === 0) {
-      room.deleteTimeout = setTimeout(() => delete rooms[roomId], 5000);
-    }
+    checkAndScheduleDeletion(roomId);
   }
   return room;
 };
 
 /**
- * Busca y elimina un jugador por su socketId en todas las salas.
- * Útil para desconexiones abruptas (cerrar pestaña).
+ * Global cleanup for disconnected sockets across all rooms.
  */
 export const removePlayerBySocketId = (socketId) => {
   for (const roomId in rooms) {
@@ -98,12 +125,43 @@ export const removePlayerBySocketId = (socketId) => {
     if (index !== -1) {
       const player = room.players[index];
       room.players.splice(index, 1);
-      
-      if (room.players.length === 0) {
-        room.deleteTimeout = setTimeout(() => delete rooms[roomId], 5000);
-      }
+      checkAndScheduleDeletion(roomId);
       return { roomId, room, player };
     }
   }
   return null;
+};
+
+/**
+ * Internal helper to cleanup empty rooms after a short grace period.
+ */
+const checkAndScheduleDeletion = (roomId) => {
+  const room = rooms[roomId];
+  if (room && room.players.length === 0) {
+    // 10 second grace period before cleaning up memory
+    room.deleteTimeout = setTimeout(() => delete rooms[roomId], 10000);
+  }
+};
+
+/**
+ * Toggles the ready status of a player.
+ */
+export const togglePlayerReady = (roomId, socketId) => {
+  const room = rooms[roomId];
+  if (!room) return null;
+
+  const player = room.players.find(p => p.id === socketId);
+  if (player) {
+    player.ready = !player.ready;
+  }
+  return room;
+};
+
+/**
+ * Resets all players' ready status to false.
+ */
+export const resetReadiness = (roomId) => {
+  const room = rooms[roomId];
+  if (!room) return;
+  room.players.forEach(p => p.ready = false);
 };

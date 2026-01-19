@@ -1,42 +1,45 @@
 import mongoose from "mongoose";
+import config from "./config/env.js";
 
-// Manejo de eventos de conexión para monitorear el estado de la conexión.
+/**
+ * Event handlers for monitoring Mongoose connection state.
+ */
 mongoose.connection.on("connected", () => {
-  console.log("✅ Mongoose se ha conectado a MongoDB.");
+  console.log("✅ MongoDB: Conexión establecida");
 });
 
 mongoose.connection.on("error", (err) => {
-  console.error("❌ Error en la conexión de Mongoose:", err.message);
+  console.error("❌ MongoDB: Error de conexión:", err.message);
 });
 
 mongoose.connection.on("disconnected", () => {
-  console.warn("⚠️ Mongoose se ha desconectado de MongoDB.");
+  console.warn("⚠️ MongoDB: Conexión perdida");
 });
 
-// Manejo de la desconexión al terminar la aplicación (Ctrl+C).
+/**
+ * Ensures clean shutdown of the database connection on app termination.
+ */
 process.on("SIGINT", async () => {
-  await mongoose.connection.close();
-  console.log(
-    "🔌 Conexión a MongoDB cerrada por terminación de la aplicación."
-  );
-  process.exit(0);
-});
-
-// Establece la conexión con la base de datos de MongoDB.
-export const connectDB = async () => {
-  const uri = process.env.MONGO_DB_URI;
-
-  if (!uri) {
-    console.error(
-      "❌ La URI de conexión a MongoDB no está definida en las variables de entorno."
-    );
+  try {
+    await mongoose.connection.close();
+    console.log("🔌 MongoDB: Conexión cerrada (SIGINT)");
+    process.exit(0);
+  } catch (error) {
+    console.error("❌ MongoDB: Error al cerrar la conexión:", error.message);
     process.exit(1);
   }
+});
 
+/**
+ * Initializes the database connection using the URI from centralized config.
+ */
+export const connectDB = async () => {
   try {
-    await mongoose.connect(uri);
+    // Note: Validation is now handled in config/env.js
+    await mongoose.connect(config.MONGO_DB_URI);
   } catch (error) {
-    console.error("❌ Falló la conexión inicial a MongoDB:", error.message);
+    console.error("❌ MongoDB: Falló la conexión inicial:", error.message);
+    // Explicitly re-throw or exit depending on desired fallback strategy
     process.exit(1);
   }
 };

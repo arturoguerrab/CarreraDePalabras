@@ -1,237 +1,23 @@
+import { GoogleGenAI } from "@google/genai";
 import ValidatedResponse from "../models/validatedResponseModel.js";
 import { CATEGORIES, CATEGORIES_FLEXIBLE } from "../config/gameConstants.js";
-import { GoogleGenAI } from "@google/genai";
+import config from "../config/env.js";
 
-export const processRoundResults = async (io, roomId, room) => {
-  try {
-    room.isCalculating = true;
-    io.to(roomId).emit("calculating_results");
+/**
+ * AI JUDGE SERVICE
+ * 
+ * Este servicio se encarga de:
+ * 1. Recibir las respuestas de los jugadores.
+ * 2. Verificar si ya tenemos esas palabras validadas en la base de datos (Caché).
+ * 3. Si hay palabras nuevas, preguntarle a la IA (Gemini).
+ * 4. Calcular los puntos según las reglas del juego.
+ */
 
-    const {
-      currentLetter,
-      currentCategories = [],
-      players,
-      roundData,
-      config,
-      scores,
-    } = room;
-    const apiKey = process.env.GEMINI_API_KEY;
+// --- Funciones Auxiliares de Apoyo ---
 
-    // 1. Mapear respuestas de jugadores
-    // OPTIMIZADO: Usamos un Map para una búsqueda instantánea de las respuestas de cada jugador.
-    const roundDataMap = new Map(roundData.map(r => [r.playerId, r.answers]));
-    const playerResponses = players.map(p => ({
-      id: p.id,
-      name: p.username || p.firstName || "Jugador",
-      answers: roundDataMap.get(p.id) || {},
-    }));
-
-    // 2. Recolectar palabras únicas para validar
-    const uniqueWordsMap = new Map(); // Key: "CAT|word" -> { w, c }
-    const validationResults = new Map(); // Key: "CAT|word" -> { v, m }
-
-    currentCategories.forEach((cat) => {
-      playerResponses.forEach((p) => {
-        const rawWord = (p.answers[cat] || "").trim();
-        if (rawWord) {
-          const key = `${cat}|${rawWord.toLowerCase()}`;
-          uniqueWordsMap.set(key, { w: rawWord, c: cat });
-        }
-      });
-    });
-
-    // 3. Consultar Caché (MongoDB)
-    if (uniqueWordsMap.size > 0) {
-      const queries = Array.from(uniqueWordsMap.values()).map((i) => ({
-        category: i.c,
-        word: i.w.toLowerCase(),
-      }));
-      const cached = await ValidatedResponse.find({
-        letter: currentLetter,
-        $or: queries,
-      });
-
-      cached.forEach((doc) => {
-        validationResults.set(`${doc.category}|${doc.word}`, {
-          v: doc.isValid ? doc.score || 1 : 0,
-          m: doc.reason,
-        });
-      });
-    }
-
-    // 4. Preparar faltantes para IA
-    const missingForAI = {};
-    uniqueWordsMap.forEach(({ w, c }, key) => {
-      if (!validationResults.has(key)) {
-        if (!missingForAI[c]) missingForAI[c] = [];
-        missingForAI[c].push(w);
-      }
-    });
-
-    // 5. Consultar IA (Simplificado: Sin schemas complejos)
-    if (Object.keys(missingForAI).length > 0 && apiKey) {
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `
-# ROLE
-Expert & Witty Judge for the Spanish game "STOP".
-
-# CONTEXT
-- Target Letter: '${currentLetter}'
-- Strictly Spanish Categories: ${CATEGORIES.join(", ")}
-- Flexible Categories (English/Original Names allowed): ${CATEGORIES_FLEXIBLE.join(
-        ", "
-      )}
-
-# VALIDATION RULES
-1. **Letter Check**: Word must start with '${currentLetter}'.
-   - Ignore accents (Á=A).
-   - IMPORTANT: In 'Flexible Categories', IGNORE leading articles (El, La, Los, Las, Un, Una, The, A, An). 
-     *Example: If letter is 'M', "The Matrix" is VALID (v: 1.0).*
-2. **Category Logic**:
-   - **Strict Categories**: Must be valid words in Spanish.
-   - **Flexible Categories**: Accept names in English, Spanish, or original language (Cities, Movies, Brands, etc.).
-3. **Scoring (v)**:
-   - v=1.0: Correct word, starts with letter, belongs to category.
-   - v=0.5: Minor typo or phonetic error (B/V, S/C/Z, H-missing), but word is obvious.
-   - v=0.0: Wrong letter, fake word, wrong category, or empty.
-
-# OUTPUT INSTRUCTIONS
-- Format: Strictly minified JSON.
-- No markdown code blocks, no preamble.
-- Message 'm': Witty, funny, very short, and in SPANISH.
-- **CRITICAL**: You MUST return a result for EVERY word in the input data. Do not skip any.
-
-# INPUT DATA
-${JSON.stringify(missingForAI)}
-
-# OUTPUT STRUCTURE
-{ 
-  "categoryName": [{ "w": "palabraOriginal", "v": number, "m": "mensaje" }] 
-}
-`;
-
-      try {
-        const response = await ai.models.generateContent({
-          model: "gemini-2.5-flash", // OPTIMIZADO: Usamos un modelo oficial, rápido y estable.
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          config: {
-            temperature: 0.1, // Temperatura baja para mayor consistencia
-            responseMimeType: "application/json",
-          },
-        });
-
-        const text = response.text || "{}";
-        // Limpieza básica por si la IA incluye bloques de código markdown
-        const cleanJson = text.replace(/```json|```/g, "").trim();
-        const aiData = JSON.parse(cleanJson);
-        const newValidations = [];
-
-        // OPTIMIZADO: Usamos un Map para procesar la respuesta de la IA eficientemente.
-        // Esto evita bucles anidados y búsquedas lentas (find).
-        const aiResultsMap = new Map();
-        for (const cat in aiData) {
-          if (Array.isArray(aiData[cat])) {
-            for (const result of aiData[cat]) {
-              if (result.w) {
-                const key = `${cat}|${normalize(result.w)}`;
-                aiResultsMap.set(key, result);
-              }
-            }
-          }
-        }
-
-        Object.keys(missingForAI).forEach(cat => {
-          const sentWords = missingForAI[cat] || [];
-          sentWords.forEach((sentWord) => {
-            const sentLower = sentWord.toLowerCase();
-            const normalizedKey = `${cat}|${normalize(sentWord)}`;
-            
-            const match = aiResultsMap.get(normalizedKey);
-            const val = match ? { v: match.v, m: match.m } : { v: 0, m: "No validado" };
-            
-            validationResults.set(`${cat}|${sentLower}`, val);
-
-            if (match) {
-              newValidations.push({
-                category: cat, letter: currentLetter, word: sentLower,
-                isValid: val.v > 0, score: val.v, reason: val.m,
-              });
-            }
-          });
-        });
-
-        // OPTIMIZADO: Guardamos en caché en segundo plano para no bloquear la respuesta al usuario.
-        if (newValidations.length) {
-          ValidatedResponse.insertMany(newValidations, { ordered: false })
-            .catch(err => console.error("Error guardando en caché:", err));
-        }
-      } catch (e) {
-        console.error("AI Error:", e);
-      }
-    }
-
-    // 6. Calcular Puntajes y Estructurar Respuesta
-    const results = currentCategories.map((cat) => {
-      const answers = playerResponses.map((p) => {
-        const word = (p.answers[cat] || "").trim();
-        const key = `${cat}|${word.toLowerCase()}`;
-        const val = word
-          ? validationResults.get(key) || { v: 0, m: "Pendiente" }
-          : { v: 0, m: "Vacío" };
-
-        return {
-          nombre: p.name,
-          palabra: word,
-          es_valida: val.v > 0,
-          scoreModifier: val.v,
-          mensaje: val.m,
-          puntos: 0,
-        };
-      });
-
-      // Regla de repetidos (50 vs 100)
-      const counts = {};
-      answers.forEach((a) => {
-        if (a.es_valida) {
-          const w = a.palabra.toLowerCase();
-          counts[w] = (counts[w] || 0) + 1;
-        }
-      });
-
-      answers.forEach((a) => {
-        if (a.es_valida) {
-          const isRepeated = counts[a.palabra.toLowerCase()] > 1;
-          a.puntos = (isRepeated ? 50 : 100) * a.scoreModifier;
-          scores[a.nombre] = (scores[a.nombre] || 0) + a.puntos;
-        }
-      });
-
-      return { categoria: cat, respuestas: answers };
-    });
-
-    // 7. Finalizar Ronda
-    const isGameOver = config.currentRound >= config.totalRounds;
-
-    io.to(roomId).emit("round_results", {
-      results,
-      scores,
-      isGameOver,
-      round: config.currentRound,
-      totalRounds: config.totalRounds,
-    });
-
-    if (!isGameOver) config.currentRound++;
-    else room.isPlaying = false;
-
-    room.roundData = [];
-  } catch (error) {
-    console.error("Critical Error in Judge:", error);
-    io.to(roomId).emit("error_joining", "Error calculando resultados.");
-  } finally {
-    room.isCalculating = false;
-  }
-};
-
+/**
+ * Normaliza una cadena para comparaciones (quita acentos, pasa a minúsculas).
+ */
 const normalize = (str) =>
   str
     ? str
@@ -240,3 +26,232 @@ const normalize = (str) =>
         .toLowerCase()
         .trim()
     : "";
+
+/**
+ * Busca palabras en la base de datos para no preguntarle a la IA lo que ya sabemos.
+ */
+const fetchCachedValidations = async (letter, uniqueWordsMap) => {
+  if (uniqueWordsMap.size === 0) return new Map();
+
+  const results = new Map();
+  const queries = Array.from(uniqueWordsMap.values()).map((i) => ({
+    category: i.c,
+    word: i.w.toLowerCase(),
+  }));
+
+  const cachedDocs = await ValidatedResponse.find({
+    letter: letter,
+    $or: queries,
+  });
+
+  cachedDocs.forEach((doc) => {
+    results.set(`${doc.category}|${doc.word}`, {
+      v: doc.isValid ? doc.score || 1 : 0,
+      m: doc.reason,
+    });
+  });
+
+  return results;
+};
+
+/**
+ * Se comunica con Gemini para validar palabras que no estaban en la base de datos.
+ */
+const getAIValidations = async (letter, missingForAI) => {
+  if (Object.keys(missingForAI).length === 0 || !config.GEMINI_API_KEY) return {};
+
+  const ai = new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
+
+  const prompt = `
+# ROLE
+Expert & Witty Judge for the Spanish game "STOP".
+
+# CONTEXT
+- Target Letter: '${letter}'
+- Strictly Spanish Categories: ${CATEGORIES.join(", ")}
+- Flexible Categories (English/Original Names allowed): ${CATEGORIES_FLEXIBLE.join(", ")}
+
+# VALIDATION RULES
+1. **Letter Check**: Word must start with '${letter}'. Ignore accents.
+2. **Category Logic**:
+   - Strict: Must be valid Spanish.
+   - Flexible: Accept original language/names (Brands, Movies).
+3. **Scoring (v)**: 1.0 = Correct, 0.5 = Typo/Partial, 0.0 = Wrong/Empty.
+
+# INPUT DATA
+${JSON.stringify(missingForAI)}
+
+# OUTPUT INSTRUCTIONS
+Return strictly JSON: { "categoryName": [{ "w": "word", "v": number, "m": "short witty message in Spanish" }] }
+`;
+
+  try {
+    // pattern compatible con @google/genai
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: {
+        responseMimeType: "application/json",
+      },
+    });
+
+    const text = response.text || "{}";
+    const cleanJson = text.replace(/```json|```/g, "").trim();
+    return JSON.parse(cleanJson);
+  } catch (error) {
+    console.error("❌ AI Error:", error.message);
+    return {};
+  }
+};
+
+/**
+ * Guarda las nuevas validaciones de la IA en la DB para usarlas en el futuro.
+ */
+const cacheNewValidations = (letter, aiData) => {
+  const newDocs = [];
+  for (const cat in aiData) {
+    if (Array.isArray(aiData[cat])) {
+      aiData[cat].forEach(res => {
+        if (res.w) {
+          newDocs.push({
+            category: cat,
+            letter: letter,
+            word: res.w.toLowerCase(),
+            isValid: res.v > 0,
+            score: res.v,
+            reason: res.m
+          });
+        }
+      });
+    }
+  }
+
+  if (newDocs.length > 0) {
+    ValidatedResponse.insertMany(newDocs, { ordered: false })
+      .catch(err => console.log("💡 Nota: Algunas palabras ya estaban en caché."));
+  }
+};
+
+// --- Función Principal ---
+
+export const processRoundResults = async (io, roomId, room) => {
+  try {
+    room.isCalculating = true;
+    io.to(roomId).emit("calculating_results");
+
+    // Destructuración segura con valores por defecto
+    const { 
+      currentLetter = "", 
+      currentCategories = [], 
+      players = [], 
+      roundData = [], 
+      config: gameConfig = { currentRound: 1, totalRounds: 5 }, 
+      scores = {} 
+    } = room;
+
+    // 1. Organizar respuestas
+    const playerResponses = players.map(p => ({
+      id: p.id,
+      name: p.username || p.firstName || "Jugador",
+      answers: roundData.find(r => r.playerId === p.id)?.answers || {},
+    }));
+
+    // 2. Identificar palabras únicas para validar
+    const uniqueWordsMap = new Map();
+    currentCategories.forEach(cat => {
+      playerResponses.forEach(p => {
+        const word = (p.answers[cat] || "").trim();
+        if (word) uniqueWordsMap.set(`${cat}|${word.toLowerCase()}`, { w: word, c: cat });
+      });
+    });
+
+    // 3. Buscar en Caché (DB)
+    const validationResults = await fetchCachedValidations(currentLetter, uniqueWordsMap);
+
+    // 4. Procesar faltantes con IA
+    const missingForAI = {};
+    uniqueWordsMap.forEach(({ w, c }, key) => {
+      if (!validationResults.has(key)) {
+        if (!missingForAI[c]) missingForAI[c] = [];
+        missingForAI[c].push(w);
+      }
+    });
+
+    if (Object.keys(missingForAI).length > 0) {
+      const aiResponse = await getAIValidations(currentLetter, missingForAI);
+      
+      // Actualizar mapa de validaciones con lo que dijo la IA
+      if (aiResponse) {
+        for (const cat in aiResponse) {
+          if (Array.isArray(aiResponse[cat])) {
+            aiResponse[cat].forEach(res => {
+              if (res && res.w) {
+                validationResults.set(`${cat}|${res.w.toLowerCase()}`, { v: res.v, m: res.m });
+              }
+            });
+          }
+        }
+        // Guardar en caché para siempre
+        cacheNewValidations(currentLetter, aiResponse);
+      }
+    }
+
+    // 5. Calcular Puntajes Finales
+    const formattedResults = currentCategories.map(cat => {
+      const categoryAnswers = playerResponses.map(p => {
+        const word = (p.answers[cat] || "").trim();
+        const val = validationResults.get(`${cat}|${word.toLowerCase()}`) || { v: 0, m: word ? "No validado" : "Vacío" };
+        
+        return {
+          nombre: p.name,
+          palabra: word,
+          es_valida: val.v > 0,
+          scoreModifier: val.v,
+          mensaje: val.m,
+          puntos: 0
+        };
+      });
+
+      // Lógica de repetidos: 100 si eres único, 50 si alguien más puso lo mismo
+      const wordCounts = {};
+      categoryAnswers.filter(a => a.es_valida).forEach(a => {
+        const w = a.palabra.toLowerCase();
+        wordCounts[w] = (wordCounts[w] || 0) + 1;
+      });
+
+      categoryAnswers.forEach(a => {
+        if (a.es_valida) {
+          const isRepeated = wordCounts[a.palabra.toLowerCase()] > 1;
+          a.puntos = (isRepeated ? 50 : 100) * a.scoreModifier;
+          scores[a.nombre] = (scores[a.nombre] || 0) + a.puntos;
+        }
+      });
+
+      return { categoria: cat, respuestas: categoryAnswers };
+    });
+
+    // 6. Enviar resultados y actualizar estado del juego
+    const isGameOver = gameConfig.currentRound >= gameConfig.totalRounds;
+    
+    io.to(roomId).emit("round_results", {
+      results: formattedResults,
+      scores,
+      isGameOver,
+      round: gameConfig.currentRound,
+      totalRounds: gameConfig.totalRounds,
+      stoppedBy: room.stoppedBy || null, // Include who pressed STOP
+    });
+
+    if (isGameOver) room.isPlaying = false;
+    else gameConfig.currentRound++;
+
+    room.roundData = [];
+    room.stoppedBy = null; // Clear for next round
+
+  } catch (error) {
+    console.error("❌ Error en el Juez:", error);
+    io.to(roomId).emit("error_joining", "Hubo un error al procesar la ronda.");
+  } finally {
+    room.isCalculating = false;
+  }
+};

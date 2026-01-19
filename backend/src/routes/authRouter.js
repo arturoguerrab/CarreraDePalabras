@@ -1,31 +1,25 @@
 import { Router } from "express";
-import {
-  getUser,
-  googleAuth,
-  googleAuthCallback,
-  loginUser,
-  logoutUser,
-  registerUser,
-  setUsername,
-} from "../controllers/authController.js";
+import * as authController from "../controllers/authController.js";
 
 const router = Router();
 
-// Rutas de autenticación local
-router.post("/register", registerUser);
+/**
+ * Local Authentication Routes
+ */
+router.post("/register", authController.registerUser);
+router.post("/login", authController.loginUser);
+router.get("/logout", authController.logoutUser);
 
-// Login
-router.post("/login", loginUser);
-router.get("/user", getUser);
+/**
+ * User & Profile Routes
+ */
+router.get("/user", authController.getUser);
+router.post("/set-username", authController.setUsername);
 
-// Ruta para completar el perfil (Google Login)
-router.post("/set-username", setUsername);
-
-// Ruta para cerrar sesión
-router.get("/logout", logoutUser);
-
-// Rutas de autenticación con Google
-router.get("/google", googleAuth);
-router.get("/google/callback", googleAuthCallback);
+/**
+ * Google OAuth Routes
+ */
+router.get("/google", authController.googleAuth);
+router.get("/google/callback", authController.googleAuthCallback);
 
 export default router;

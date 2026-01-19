@@ -1,294 +1,249 @@
-// Importaciones
-import { createContext, useState, useEffect, useRef } from "react";
+import { createContext, useState, useEffect, useCallback } from "react";
 import stopAPI from "../stopAPI";
 import io from "socket.io-client";
-import { useNavigate } from "react-router-dom"; // 1. Importar el hook useNavigate
+import { useNavigate } from "react-router-dom";
 
-// Crecion del contexto
+/**
+ * STOP CONTEXT
+ * Gestiona el estado global del juego, la autenticación y la comunicación en tiempo real.
+ */
 export const StopContext = createContext();
 
-//Componente proveedor del contexto
-const StopContextProvider = ({ children }) => {
-  //Estados
+export const StopContextProvider = ({ children }) => {
+  // --- Estados de Autenticación ---
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate(); // 2. Obtener la función de navegación
-  const [socket, setSocket] = useState(null); // <-- Nuevo estado para el socket
+  const navigate = useNavigate();
+  const [socket, setSocket] = useState(null);
 
   // --- Estado del Juego y la Sala ---
   const [roomId, setRoomId] = useState(null);
   const [players, setPlayers] = useState([]);
   const [gameError, setGameError] = useState(null);
-  const [gameState, setGameState] = useState("lobby"); // 'lobby', 'playing'
+  const [gameState, setGameState] = useState("lobby"); // 'lobby', 'playing', 'calculating', 'results'
   const [gameLetter, setGameLetter] = useState("");
-  const [gameCategories, setGameCategories] = useState([]); // <-- Nuevo estado para categorías
-  const [gameResults, setGameResults] = useState([]); // <-- Nuevos resultados
-  const [gameScores, setGameScores] = useState({}); // Puntuaciones acumuladas
-  const [isGameOver, setIsGameOver] = useState(false); // Estado de fin de juego
-  const [roundInfo, setRoundInfo] = useState({ current: 0, total: 0 }); // Info de rondas
+  const [gameCategories, setGameCategories] = useState([]);
+  const [gameResults, setGameResults] = useState([]);
+  const [gameScores, setGameScores] = useState({});
+  const [isGameOver, setIsGameOver] = useState(false);
+  const [roundInfo, setRoundInfo] = useState({ current: 0, total: 0 });
+  const [countdown, setCountdown] = useState(null);
+  const [stoppedBy, setStoppedBy] = useState(null); // Who pressed STOP
 
+  /**
+   * Limpia el estado del juego para una nueva partida o sala.
+   */
+  const clearGameData = useCallback(() => {
+    setGameResults([]);
+    setGameScores({});
+    setIsGameOver(false);
+    setRoundInfo({ current: 0, total: 0 });
+    setGameError(null);
+    setCountdown(null);
+    setStoppedBy(null);
+  }, []);
+
+  // --- Verificación de Sesión Inicial ---
   useEffect(() => {
     const checkSession = async () => {
       try {
         const response = await stopAPI.get("/auth/user");
-
-        if (response.data.isLoggedIn) {
-          setUser(response.data.user);
-        } else {
-          setUser(null);
-        }
+        if (response.data.isLoggedIn) setUser(response.data.user);
+        else setUser(null);
       } catch (error) {
-        console.error("Error al verificar la sesión:", error);
+        console.error("❌ Error de sesión:", error);
         setUser(null);
       } finally {
         setIsLoading(false);
       }
     };
-
     checkSession();
   }, []);
 
-  // useEffect para gestionar la conexión del socket basada en el estado del usuario
+  // --- Gestión de Conexión del Socket ---
   useEffect(() => {
-    // Si hay un usuario y no hay un socket, crea la conexión.
     if (user && !socket) {
-      const SOCKET_SERVER_URL =
-        import.meta.env.VITE_REACT_APP_BACKEND_URL || "http://localhost:3000";
+      const URL = import.meta.env.VITE_REACT_APP_BACKEND_URL || "http://localhost:3000";
+      const newSocket = io(URL, { withCredentials: true, autoConnect: true });
 
-      const newSocket = io(SOCKET_SERVER_URL, {
-        withCredentials: true, // Para enviar cookies de sesión
-        autoConnect: true, // Conectar automáticamente
-      });
-
-      newSocket.on("connect", () => {
-        console.log(
-          "Socket conectado por el usuario:",
-          user.email,
-          "con ID:",
-          user.id
-        );
-      });
-
-      newSocket.on("disconnect", (reason) => {
-        console.log("Socket desconectado:", reason);
-      });
-
-      newSocket.on("connect_error", (error) => {
-        console.error("Error de conexión del socket:", error);
-      });
-
+      newSocket.on("connect", () => console.log(`🔌 Socket conectado: ${user.email}`));
+      newSocket.on("connect_error", (err) => console.error("❌ Error socket:", err));
+      
       setSocket(newSocket);
-    }
-    // Si no hay usuario y el socket existe, desconéctalo.
-    else if (!user && socket) {
-      console.log("Usuario no autenticado, desconectando socket.");
+    } else if (!user && socket) {
       socket.disconnect();
       setSocket(null);
     }
+  }, [user, socket]);
 
-    // --- Lógica de eventos del socket ---
-    if (socket) {
-      const handleRoomCreated = (newRoomId) => {
-        setRoomId(newRoomId);
-        setGameError(null);
-        setGameState("lobby");
-        setGameResults([]);
-        setGameScores({});
-        setIsGameOver(false);
-        setRoundInfo({ current: 0, total: 0 });
-        navigate(`/room/${newRoomId}`); // 3. Usar la función para navegar
-      };
-      const handleJoinedRoom = (joinedRoomId) => {
-        setRoomId(joinedRoomId);
-        setGameError(null);
-        setGameState("lobby");
-        setGameResults([]);
-        setGameScores({});
-        setIsGameOver(false);
-        setRoundInfo({ current: 0, total: 0 });
-        navigate(`/room/${joinedRoomId}`); // <-- AÑADIR NAVEGACIÓN AQUÍ
-      };
-      const handleUpdatePlayerList = (playerList) => {
-        setPlayers(playerList);
-      };
-      const handleError = (errorMessage) => {
-        setGameError(errorMessage);
-      };
-      const handleGameStarted = ({ letter, categories }) => {
-        setGameLetter(letter);
-        setGameCategories(categories || []); // Guardar categorías recibidas
-        setGameState("playing");
-      };
-      const handleRoundResults = (data) => {
-        // Manejar tanto el formato antiguo (array) como el nuevo (objeto)
-        if (data.results) {
-          setGameResults(data.results);
-          setGameScores(data.scores);
-          setIsGameOver(data.isGameOver);
-          setRoundInfo({ current: data.round, total: data.totalRounds });
-        } else {
-          setGameResults(data);
-        }
-        setGameState("results");
-      };
-      const handleCalculating = () => {
-        setGameState("calculating");
-      };
-      const handleGameReset = () => {
-        setGameState("lobby");
-        setGameResults([]);
-        setGameScores({});
-        setIsGameOver(false);
-        setRoundInfo({ current: 0, total: 0 });
-      };
+  // --- Lógica de Eventos de Juego ---
+  useEffect(() => {
+    if (!socket) return;
 
-      socket.on("room_created", handleRoomCreated);
-      socket.on("joined_room", handleJoinedRoom);
-      socket.on("update_player_list", handleUpdatePlayerList);
-      socket.on("error_joining", handleError);
-      socket.on("game_started", handleGameStarted);
-      socket.on("round_results", handleRoundResults);
-      socket.on("calculating_results", handleCalculating);
-      socket.on("game_reset", handleGameReset);
+    // Handlers definidos fuera para limpieza y claridad
+    const onRoomCreated = (id) => {
+      setRoomId(id);
+      setGameState("lobby");
+      setGameError(null);
+      navigate(`/room/${id}`);
+    };
 
-      // Limpieza al desmontar o cuando el socket cambie
-      return () => {
-        socket.off("room_created", handleRoomCreated);
-        socket.off("joined_room", handleJoinedRoom);
-        socket.off("update_player_list", handleUpdatePlayerList);
-        socket.off("error_joining", handleError);
-        socket.off("game_started", handleGameStarted);
-        socket.off("round_results", handleRoundResults);
-        socket.off("calculating_results", handleCalculating);
-        socket.off("game_reset", handleGameReset);
-      };
-    }
+    const onJoinedRoom = (id) => {
+      setRoomId(id);
+      setGameState("lobby");
+      setGameError(null);
+      navigate(`/room/${id}`);
+    };
 
-    // Limpiar estado de la sala si el usuario se desloguea
-    if (!user) {
+    const onCountdown = (seconds) => {
+      setCountdown(seconds);
+      setGameError(null);
+      setStoppedBy(null); // Clear stoppedBy when countdown starts
+    };
+
+    const onGameStarted = ({ letter, categories }) => {
+      setCountdown(null);
+      setGameLetter(letter);
+      setGameCategories(categories || []);
+      setGameState("playing");
+      setStoppedBy(null); // Ensure stoppedBy is cleared when game starts
+    };
+
+    const onRoundResults = (data) => {
+      if (data.results) {
+        setGameResults(data.results);
+        setGameScores(data.scores);
+        setIsGameOver(data.isGameOver);
+        setRoundInfo({ current: data.round, total: data.totalRounds });
+        setStoppedBy(data.stoppedBy || null); // Capture who pressed STOP
+      } else {
+        setGameResults(data);
+      }
+      setGameState("results");
+    };
+
+    const onCalculating = () => setGameState("calculating");
+
+    const onForceSubmit = (data) => {
+      if (data && data.stoppedBy) {
+        setStoppedBy(data.stoppedBy);
+      }
+    };
+
+
+    // Suscripciones
+    socket.on("room_created", onRoomCreated);
+    socket.on("joined_room", onJoinedRoom);
+    socket.on("update_player_list", setPlayers);
+    socket.on("error_joining", (msg) => setGameError(msg));
+    socket.on("start_countdown", onCountdown);
+    socket.on("game_started", onGameStarted);
+    socket.on("round_results", onRoundResults);
+    socket.on("calculating_results", onCalculating);
+    socket.on("force_submit", onForceSubmit); // Listen for STOP notifications
+    socket.on("game_reset", () => {
+      setGameState("lobby");
+      clearGameData();
+    });
+
+    return () => {
+      socket.off("room_created", onRoomCreated);
+      socket.off("joined_room", onJoinedRoom);
+      socket.off("update_player_list");
+      socket.off("error_joining");
+      socket.off("start_countdown", onCountdown);
+      socket.off("game_started", onGameStarted);
+      socket.off("round_results", onRoundResults);
+      socket.off("calculating_results", onCalculating);
+      socket.off("force_submit", onForceSubmit);
+      socket.off("game_reset");
+    };
+  }, [socket, navigate, clearGameData]);
+
+  // --- Acciones de Usuario ---
+  const login = useCallback(async (email, password) => {
+    const response = await stopAPI.post("/auth/login", { email, password });
+    if (response.data.user) setUser(response.data.user);
+    return response;
+  }, []);
+
+  const register = useCallback((userData) => stopAPI.post("/auth/register", userData), []);
+
+  const logout = useCallback(async () => {
+    try {
+      await stopAPI.get("/auth/logout");
+      setUser(null);
       setRoomId(null);
       setPlayers([]);
+    } catch (err) {
+      console.error("❌ Error logout:", err);
     }
-  }, [user, socket, navigate]); // Dependencias más robustas
+  }, []);
 
-  const login = async (email, password) => {
-    const response = await stopAPI.post("/auth/login", { email, password });
-    if (response.data.user) {
-      setUser(response.data.user);
-    }
-    // El useEffect [user] se encargará de conectar el socket
-    return response;
-  };
+  const updateUsername = useCallback(async (username) => {
+    const res = await stopAPI.post("/auth/set-username", { username });
+    if (res.data.user) setUser(res.data.user);
+    return res;
+  }, []);
 
-  const register = async (userData) => {
-    console.log("Enviando datos de registro:", userData); // Log para verificar qué se envía
-    return await stopAPI.post("/auth/register", userData);
-  };
-
-  const updateUsername = async (username) => {
-    try {
-      const response = await stopAPI.post("/auth/set-username", { username });
-      if (response.data.user) {
-        setUser(response.data.user); // Actualizamos el usuario localmente para desbloquear la vista
-      }
-      return response;
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  const loginWithGoogle = () => {
-    window.location.href = `${
-      import.meta.env.VITE_REACT_APP_BACKEND_URL || "http://localhost:3000"
-    }/auth/google`;
-  };
-
-  const logout = async () => {
-    try {
-      await stopAPI.get("/auth/logout"); // URL simplificada
-      setUser(null);
-      setRoomId(null); // Limpiar la sala al cerrar sesión
-      setPlayers([]);
-      // El useEffect [user] se encargará de desconectar y limpiar el socket
-    } catch (error) {
-      console.error("Error al cerrar sesión:", error);
-    }
-  };
-
-  const createRoom = () => {
+  // --- Acciones de Juego (Socket Emitters) ---
+  const createRoom = useCallback(() => {
+    setGameError(null); // Clear any previous errors
     socket?.emit("create_room", user);
-  };
+  }, [socket, user]);
 
-  const joinRoom = (room_id) => {
-    if (room_id.trim()) {
-      socket?.emit("join_room", { room_id: room_id, user: user });
+  const joinRoom = useCallback((room_id) => {
+    if (room_id?.trim()) {
+      setGameError(null); // Clear any previous errors
+      socket?.emit("join_room", { room_id, user });
     }
-  };
+  }, [socket, user]);
+  const startGame = useCallback((room_id, rounds = 5) => socket?.emit("start_game", { room_id, rounds }), [socket]);
+  const nextRound = useCallback((room_id) => socket?.emit("next_round", room_id), [socket]);
+  const resetGame = useCallback((room_id) => socket?.emit("reset_game", room_id), [socket]);
 
-  const leaveRoom = (room_id) => {
+  const leaveRoom = useCallback((room_id) => {
     if (room_id && user) {
-      socket?.emit("leave_room", { room_id: room_id, user: user });
+      socket?.emit("leave_room", { room_id, user });
       setRoomId(null);
       setPlayers([]);
       setGameState("lobby");
-      setGameResults([]);
-      setGameLetter("");
-      setGameScores({});
-      setIsGameOver(false);
-      setRoundInfo({ current: 0, total: 0 });
-      setGameError(null);
+      setCountdown(null);
     }
-  };
+  }, [socket, user]);
 
-  const startGame = (room_id, rounds = 5) => {
-    socket?.emit("start_game", { room_id, rounds });
-  };
+  const loginWithGoogle = useCallback(() => {
+    const URL = import.meta.env.VITE_REACT_APP_BACKEND_URL || "http://localhost:3000";
+    window.location.href = `${URL}/auth/google`;
+  }, []);
 
-  const nextRound = (room_id) => {
-    socket?.emit("next_round", room_id);
-  };
+  const backToLobby = useCallback(() => setGameState("lobby"), []);
 
-  const resetGame = (room_id) => {
-    socket?.emit("reset_game", room_id);
-  };
+  const toggleReady = useCallback((room_id) => {
+    if (room_id && socket) {
+      socket.emit("toggle_ready", room_id);
+    }
+  }, [socket]);
 
-  const backToLobby = () => {
-    setGameState("lobby");
-    setGameResults([]);
-    setGameScores({});
-    setIsGameOver(false);
-    setRoundInfo({ current: 0, total: 0 });
-  };
-  // --- Funciones de Interacción con el Juego ---
+  // Optimistic update for stopper to avoid seeing 'loading' screen
+  const notifyStopPressedByMe = useCallback(() => {
+    if (user) {
+        setStoppedBy(user.username || user.firstName || "Yo");
+    }
+  }, [user]);
 
   const value = {
-    user,
-    isLoading,
-    login,
-    register,
-    updateUsername,
-    loginWithGoogle,
-    logout,
-    socket,
-    // Estado y acciones del juego
-    roomId,
-    players,
-    gameError,
-    createRoom,
-    joinRoom,
-    leaveRoom,
-    gameState,
-    gameLetter,
-    gameCategories,
-    startGame,
-    gameResults,
-    gameScores,
-    isGameOver,
-    roundInfo,
-    nextRound,
-    resetGame,
+    user, isLoading, login, register, updateUsername, loginWithGoogle, logout, socket,
+    roomId, players, gameError, createRoom, joinRoom, leaveRoom,
+    gameState, gameLetter, gameCategories, startGame, gameResults,
+    gameScores, isGameOver, roundInfo, nextRound, resetGame,
+    countdown, stoppedBy,
+    toggleReady,
+    clearError: () => setGameError(null),
     backToLobby,
-  }; // <-- Exponer el socket
+    notifyStopPressedByMe, // Expose this
+  };
+
   return <StopContext.Provider value={value}>{children}</StopContext.Provider>;
 };
 
