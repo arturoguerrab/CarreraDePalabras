@@ -1,10 +1,29 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 
 /**
  * GAME INPUT VIEW
  * Interfaz de la ronda activa donde el jugador ingresa las respuestas.
  */
-const GameInputView = ({ handleSubmit, handleInputChange, letra, categories = [], isSubmitting }) => {
+const GameInputView = ({ handleSubmit, handleInputChange, letra, categories = [], isSubmitting, roundDuration = 60 }) => {
+  const [timeLeft, setTimeLeft] = useState(roundDuration);
+
+  useEffect(() => {
+    setTimeLeft(roundDuration);
+    
+    // Timer interval
+    const timer = setInterval(() => {
+        setTimeLeft((prev) => {
+            if (prev <= 1) {
+                clearInterval(timer);
+                return 0;
+            }
+            return prev - 1;
+        });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [roundDuration]);
+
   
   /**
    * Facilita la navegación entre inputs con la tecla Enter.
@@ -44,12 +63,20 @@ const GameInputView = ({ handleSubmit, handleInputChange, letra, categories = []
                         <p className="text-gray-400 text-[10px] md:text-xs uppercase tracking-widest">Rellena los campos rápidamente</p>
                     </div>
                     
-                    {/* Indicador de Letra */}
-                    <div className="relative group">
-                        <div className="w-24 h-24 bg-[#fbbf24] rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center transform group-hover:-translate-y-1 transition-transform">
-                            <span className="text-5xl text-white drop-shadow-[2px_2px_0px_rgba(0,0,0,0.5)]">{letra}</span>
+                    {/* Indicador de Letra y Tiempo */}
+                    <div className="flex gap-4">
+                         {/* Timer */}
+                         <div className={`w-24 h-24 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center justify-center transform transition-all ${timeLeft <= 10 ? 'bg-red-500 animate-pulse' : 'bg-white'}`}>
+                            <span className={`text-4xl font-black drop-shadow-[2px_2px_0px_rgba(0,0,0,0.2)] ${timeLeft <= 10 ? 'text-white' : 'text-black'}`}>{timeLeft}</span>
+                            <span className={`text-[8px] uppercase font-bold ${timeLeft <= 10 ? 'text-white' : 'text-gray-500'}`}>Segundos</span>
+                         </div>
+
+                        <div className="relative group">
+                            <div className="w-24 h-24 bg-[#fbbf24] rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center transform group-hover:-translate-y-1 transition-transform">
+                                <span className="text-5xl text-white drop-shadow-[2px_2px_0px_rgba(0,0,0,0.5)]">{letra}</span>
+                            </div>
+                            <span className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-[8px] text-black uppercase font-bold">Letra</span>
                         </div>
-                        <span className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-[8px] text-black uppercase font-bold">Letra</span>
                     </div>
                 </header>
 

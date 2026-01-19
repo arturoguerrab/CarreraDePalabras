@@ -21,10 +21,27 @@ const socketHandler = (io) => {
       const roomData = roomService.prepareNextRound(roomId);
       if (!roomData) return;
 
+      // Clear any existing timer just in case
+      if (room.timer) clearTimeout(room.timer);
+
+      // Start the 60s Auto-Stop Timer
+      const TIME_LIMIT = 60; // seconds
+      room.timer = setTimeout(() => {
+        console.log(`⏰ Time's up for room ${roomId}`);
+        
+        // Logic similar to stop_round but triggered by system
+        room.stoppedBy = "⏰ EL TIEMPO ⏰";
+        io.to(roomId).emit("force_submit", { stoppedBy: room.stoppedBy });
+        
+        // Allow a slight buffer for clients to submit
+        setTimeout(() => checkRoundComplete(roomId), 2000); 
+      }, TIME_LIMIT * 1000);
+
       emitPlayerList(roomId, room.players); // Notify reset ONCE the round starts
       io.to(roomId).emit("game_started", {
         letter: roomData.letter,
         categories: roomData.categories,
+        roundDuration: TIME_LIMIT
       });
     }, 3000);
   };
@@ -144,6 +161,7 @@ const socketHandler = (io) => {
     socket.on("reset_game", (roomId) => {
       const room = roomService.getRoom(roomId);
       if (room) {
+        if (room.timer) clearTimeout(room.timer); // Clear timer on reset
         room.isPlaying = false;
         room.scores = {};
         room.roundData = [];
@@ -163,6 +181,9 @@ const socketHandler = (io) => {
       if (!room) return socket.emit("error_joining", "La sala ha expirado.");
       
       if (room.roundData.find(d => d.playerId === socket.id)) return;
+
+      // Clear the auto-stop timer since a player stopped it manually
+      if (room.timer) clearTimeout(room.timer);
 
       // Find the player who pressed STOP
       const stopper = room.players.find(p => p.id === socket.id);

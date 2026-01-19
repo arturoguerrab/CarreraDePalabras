@@ -9,7 +9,7 @@ import GameInputView from "./GameInputView";
  * podrían afectar el rendimiento o interrumpir la conexión del socket en casos extremos.
  */
 const GameInputContainer = () => {
-  const { gameLetter, socket, roomId, gameCategories, stoppedBy, notifyStopPressedByMe } = useContext(StopContext);
+  const { gameLetter, socket, roomId, gameCategories, stoppedBy, notifyStopPressedByMe, roundDuration } = useContext(StopContext);
   
   // Referencia para almacenar las respuestas sin provocar rerenders al escribir
   const answersRef = useRef({});
@@ -82,6 +82,7 @@ const GameInputContainer = () => {
       categories={gameCategories}
       isSubmitting={isSubmitting}
       stoppedBy={stoppedBy}
+      roundDuration={roundDuration}
     />
   );
 };

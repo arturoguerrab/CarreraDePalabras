@@ -29,6 +29,7 @@ export const StopContextProvider = ({ children }) => {
   const [roundInfo, setRoundInfo] = useState({ current: 0, total: 0 });
   const [countdown, setCountdown] = useState(null);
   const [stoppedBy, setStoppedBy] = useState(null); // Who pressed STOP
+  const [roundDuration, setRoundDuration] = useState(60); // Default round duration
 
   /**
    * Limpia el estado del juego para una nueva partida o sala.
@@ -101,12 +102,13 @@ export const StopContextProvider = ({ children }) => {
       setStoppedBy(null); // Clear stoppedBy when countdown starts
     };
 
-    const onGameStarted = ({ letter, categories }) => {
+    const onGameStarted = ({ letter, categories, roundDuration: duration }) => {
       setCountdown(null);
       setGameLetter(letter);
       setGameCategories(categories || []);
       setGameState("playing");
       setStoppedBy(null); // Ensure stoppedBy is cleared when game starts
+      if (duration) setRoundDuration(duration);
     };
 
     const onRoundResults = (data) => {
@@ -242,6 +244,7 @@ export const StopContextProvider = ({ children }) => {
     clearError: () => setGameError(null),
     backToLobby,
     notifyStopPressedByMe, // Expose this
+    roundDuration,
   };
 
   return <StopContext.Provider value={value}>{children}</StopContext.Provider>;
