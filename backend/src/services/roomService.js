@@ -1,5 +1,6 @@
 import { customAlphabet } from "nanoid";
 import { ALL_CATEGORIES } from "../config/gameConstants.js";
+import logger from "../utils/logger.js";
 
 // Generator for 4-digit numeric room IDs
 const generateRoomId = customAlphabet("0123456789", 4);
@@ -10,7 +11,13 @@ const rooms = {};
 /**
  * Retrieves a room by its ID.
  */
-export const getRoom = (roomId) => rooms[roomId];
+export const getRoom = (roomId) => {
+  const room = rooms[roomId];
+  if (room) {
+    room.lastActivity = Date.now();
+  }
+  return room;
+};
 
 /**
  * Creates a new room and sets the initial state for the creator.
@@ -32,10 +39,31 @@ export const createRoom = (user, socketId) => {
     usedLetters: [],
     currentLetter: "",
     currentCategories: [],
-    config: { totalRounds: 5, currentRound: 1 }
+    config: { totalRounds: 5, currentRound: 1 },
+    lastActivity: Date.now()
   };
   return roomId;
 };
+
+// --- GARBAGE COLLECTOR ---
+// Revisa cada 30 minutos si hay salas abandonadas (sin actividad por 1 hora)
+setInterval(() => {
+  const ONE_HOUR = 60 * 60 * 1000;
+  const now = Date.now();
+  let deletedCount = 0;
+
+  for (const roomId in rooms) {
+    const room = rooms[roomId];
+    if (now - room.lastActivity > ONE_HOUR) {
+      delete rooms[roomId];
+      deletedCount++;
+    }
+  }
+
+  if (deletedCount > 0) {
+    logger.info(`🧹 Garbage Collector: Se eliminaron ${deletedCount} salas inactivas.`);
+  }
+}, 30 * 60 * 1000); // Ejecutar cada 30 min
 
 /**
  * Attempts to add a player to a room. Handles reconnections.

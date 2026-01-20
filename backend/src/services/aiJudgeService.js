@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import ValidatedResponse from "../models/validatedResponseModel.js";
 import { CATEGORIES, CATEGORIES_FLEXIBLE } from "../config/gameConstants.js";
 import config from "../config/env.js";
+import logger from "../utils/logger.js";
 
 /**
  * AI JUDGE SERVICE
@@ -99,7 +100,7 @@ Return strictly JSON: { "categoryName": [{ "w": "word", "v": number, "m": "short
     const cleanJson = text.replace(/```json|```/g, "").trim();
     return JSON.parse(cleanJson);
   } catch (error) {
-    console.error("❌ AI Error:", error.message);
+    logger.error("❌ AI Error:", error.message);
     return {};
   }
 };
@@ -128,7 +129,7 @@ const cacheNewValidations = (letter, aiData) => {
 
   if (newDocs.length > 0) {
     ValidatedResponse.insertMany(newDocs, { ordered: false })
-      .catch(err => console.log("💡 Nota: Algunas palabras ya estaban en caché."));
+      .catch(err => logger.info("💡 Nota: Algunas palabras ya estaban en caché."));
   }
 };
 
@@ -249,7 +250,7 @@ export const processRoundResults = async (io, roomId, room) => {
     room.stoppedBy = null; // Clear for next round
 
   } catch (error) {
-    console.error("❌ Error en el Juez:", error);
+    logger.error("❌ Error en el Juez:", error);
     io.to(roomId).emit("error_joining", "Hubo un error al procesar la ronda.");
   } finally {
     room.isCalculating = false;

@@ -105,7 +105,7 @@ const StopView = ({
 
             <div className="flex flex-col sm:flex-row gap-4">
                 <button onClick={onPlayAgain} className="flex-grow bg-[#16a34a] border-4 border-black text-white text-[10px] py-4 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-none transition-all uppercase">
-                  🔄 Nueva Partida
+                  🔄 Volver a la Sala
                 </button>
                 <button onClick={onLeave} className="flex-grow bg-[#ef4444] border-4 border-black text-white text-[10px] py-4 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-none transition-all uppercase">
                   🚪 Salir

@@ -4,10 +4,13 @@ import React, { useState, useEffect } from "react";
  * GAME INPUT VIEW
  * Interfaz de la ronda activa donde el jugador ingresa las respuestas.
  */
-const GameInputView = ({ handleSubmit, handleInputChange, letra, categories = [], isSubmitting, roundDuration = 60 }) => {
+const GameInputView = ({ handleSubmit, handleInputChange, letra, categories = [], isSubmitting, roundDuration = 60, stoppedBy }) => {
   const [timeLeft, setTimeLeft] = useState(roundDuration);
 
   useEffect(() => {
+    // If the round is stopped by someone, we shouldn't continue the timer locally
+    if (stoppedBy) return;
+
     setTimeLeft(roundDuration);
     
     // Timer interval
@@ -22,7 +25,7 @@ const GameInputView = ({ handleSubmit, handleInputChange, letra, categories = []
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [roundDuration]);
+  }, [roundDuration, stoppedBy]);
 
   
   /**
@@ -41,6 +44,8 @@ const GameInputView = ({ handleSubmit, handleInputChange, letra, categories = []
       }
     }
   };
+
+  const isDisabled = isSubmitting || !!stoppedBy;
 
   return (
     <div className="min-h-screen bg-[#6366f1] flex items-center justify-center px-4 py-8 font-['Press_Start_2P'] relative overflow-hidden">
@@ -93,7 +98,8 @@ const GameInputView = ({ handleSubmit, handleInputChange, letra, categories = []
                                     onChange={(e) => handleInputChange(cat, e.target.value)}
                                     onKeyDown={handleKeyDown}
                                     placeholder="..."
-                                    className="w-full bg-gray-50 border-4 border-gray-100 focus:border-black rounded-xl p-4 text-black text-sm md:text-base focus:bg-white focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.05)] transition-all outline-none placeholder-gray-300"
+                                    disabled={isDisabled}
+                                    className={`w-full bg-gray-50 border-4 border-gray-100 focus:border-black rounded-xl p-4 text-black text-sm md:text-base focus:bg-white focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.05)] transition-all outline-none placeholder-gray-300 ${isDisabled ? 'opacity-50 cursor-not-allowed bg-gray-200' : ''}`}
                                     autoComplete="off"
                                     autoCorrect="off"
                                     autoCapitalize="off"
@@ -107,7 +113,7 @@ const GameInputView = ({ handleSubmit, handleInputChange, letra, categories = []
                     <div className="mt-14 flex justify-center">
                         <button
                             type="submit"
-                            disabled={isSubmitting}
+                            disabled={isDisabled}
                             className="group relative px-12 py-5 bg-[#ef4444] rounded-2xl border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-2 active:shadow-none transition-all overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <span className="relative z-10 text-white text-xl md:text-2xl uppercase drop-shadow-md">

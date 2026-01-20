@@ -63,19 +63,22 @@ export const StopContextProvider = ({ children }) => {
 
   // --- Gestión de Conexión del Socket ---
   useEffect(() => {
-    if (user && !socket) {
-      const URL = import.meta.env.VITE_REACT_APP_BACKEND_URL || "http://localhost:3000";
-      const newSocket = io(URL, { withCredentials: true, autoConnect: true });
+    if (!user) return;
 
-      newSocket.on("connect", () => console.log(`🔌 Socket conectado: ${user.email}`));
-      newSocket.on("connect_error", (err) => console.error("❌ Error socket:", err));
-      
-      setSocket(newSocket);
-    } else if (!user && socket) {
-      socket.disconnect();
+    const URL = import.meta.env.VITE_REACT_APP_BACKEND_URL || "http://localhost:3000";
+    const newSocket = io(URL, { withCredentials: true, autoConnect: true });
+
+    newSocket.on("connect", () => console.log(`🔌 Socket conectado: ${user.email}`));
+    newSocket.on("connect_error", (err) => console.error("❌ Error socket:", err));
+    
+    setSocket(newSocket);
+
+    // Cleanup: Disconnect when user changes (logout) or component unmounts
+    return () => {
+      newSocket.disconnect();
       setSocket(null);
-    }
-  }, [user, socket]);
+    };
+  }, [user]);
 
   // --- Lógica de Eventos de Juego ---
   useEffect(() => {

@@ -1,5 +1,6 @@
 import { processRoundResults } from "./services/aiJudgeService.js";
 import * as roomService from "./services/roomService.js";
+import logger from "./utils/logger.js";
 
 /**
  * SOCKET HANDLER
@@ -27,7 +28,7 @@ const socketHandler = (io) => {
       // Start the 60s Auto-Stop Timer
       const TIME_LIMIT = 60; // seconds
       room.timer = setTimeout(() => {
-        console.log(`⏰ Time's up for room ${roomId}`);
+        logger.info(`⏰ Time's up for room ${roomId}`);
         
         // Logic similar to stop_round but triggered by system
         room.stoppedBy = "⏰ EL TIEMPO ⏰";
@@ -77,7 +78,7 @@ const socketHandler = (io) => {
     const room = roomService.getRoom(roomId);
     if (!room) return;
 
-    console.log(`🙋 Player ${socket.id} toggled ready in room ${roomId}`);
+    logger.info(`🙋 Player ${socket.id} toggled ready in room ${roomId}`);
     roomService.togglePlayerReady(roomId, socket.id);
     emitPlayerList(roomId, room.players);
 
@@ -85,7 +86,7 @@ const socketHandler = (io) => {
     const allReady = room.players.length > 0 && room.players.every(p => p.ready);
     
     if (allReady) {
-      console.log(`✅ All players ready in room ${roomId}. Starting...`);
+      logger.info(`✅ All players ready in room ${roomId}. Starting...`);
       if (!room.isPlaying) {
         room.isPlaying = true;
         room.scores = {};
@@ -97,7 +98,7 @@ const socketHandler = (io) => {
   };
 
   io.on("connection", (socket) => {
-    console.log(`🔌 New connection: ${socket.id}`);
+    logger.info(`🔌 New connection: ${socket.id}`);
 
     /**
      * Creation & Joining
@@ -131,7 +132,7 @@ const socketHandler = (io) => {
 
     socket.on("start_game", (data) => {
       try {
-        console.log(`🎮 Start Game requested via socket ${socket.id}`, data);
+        logger.info(`🎮 Start Game requested via socket ${socket.id}`, data);
         const roomId = typeof data === 'object' ? data.room_id : data;
         const room = roomService.getRoom(roomId);
         
@@ -140,17 +141,17 @@ const socketHandler = (io) => {
               const r = Number(data.rounds);
               if (!isNaN(r)) {
                  room.config.totalRounds = r;
-                 console.log(`✅ Room ${roomId} rounds set to ${r}`);
+                 logger.info(`✅ Room ${roomId} rounds set to ${r}`);
               }
            }
            // Decoupled logic: start_game ONLY sets configuration.
            // The frontend must call toggle_ready explicitly afterwards.
-           console.log(`✅ Room ${roomId} configured. Waiting for toggle_ready...`);
+           logger.info(`✅ Room ${roomId} configured. Waiting for toggle_ready...`);
         } else {
-           console.error(`❌ Room ${roomId} not found for start_game`);
+           logger.error(`❌ Room ${roomId} not found for start_game`);
         }
       } catch (err) {
-        console.error("❌ Error in start_game handler:", err);
+        logger.error("❌ Error in start_game handler:", err);
       }
     });
 

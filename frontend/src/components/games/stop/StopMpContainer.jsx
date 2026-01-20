@@ -33,7 +33,8 @@ const StopMpContainer = () => {
     clearError,
     countdown,
     stoppedBy,
-    startGame
+    startGame,
+    backToLobby
   } = useContext(StopContext);
 
   useEffect(() => {
@@ -185,7 +186,7 @@ const StopMpContainer = () => {
       {gameState === "results" && (
         <StopContainer 
           entradaDatos={gameResults} 
-          onPlayAgain={() => resetGame(urlRoomId)}
+          onPlayAgain={backToLobby}
           onNextRound={() => toggleReady(urlRoomId)}
           onLeave={handleLeave}
           error={gameError}
