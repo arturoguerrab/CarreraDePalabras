@@ -6,6 +6,7 @@ import session from "express-session";
 import cors from "cors";
 import helmet from "helmet";
 import MongoStore from "connect-mongo";
+import rateLimit from "express-rate-limit"; // Security: Rate Limiting
 
 // Config & Services
 import config from "./config/env.js";
@@ -35,23 +36,35 @@ app.use(cors({ origin: config.CLIENT_URL, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Session Management
-app.use(
-  session({
-    secret: config.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    store: MongoStore.create({
-      mongoUrl: config.MONGO_DB_URI,
-      collectionName: "sessions",
-    }),
-    cookie: {
-      httpOnly: true,
-      secure: config.NODE_ENV === "production",
-      maxAge: 1000 * 60 * 60 * 24, // 1 day
-    },
-  })
-);
+// Rate Limiting (Brute Force Protection)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 20, // max 20 intentos por IP
+  message: { message: "Demasiados intentos. Inténtalo de nuevo más tarde." }
+});
+
+// Session Management (Shared with Socket.IO)
+const sessionMiddleware = session({
+  secret: config.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: config.MONGO_DB_URI,
+    collectionName: "sessions",
+  }),
+  cookie: {
+    httpOnly: true,
+    secure: config.NODE_ENV === "production",
+    maxAge: 1000 * 60 * 60 * 24, // 1 day
+  },
+});
+
+app.use(sessionMiddleware);
+
+// Share session with Socket.IO
+io.engine.use(sessionMiddleware);
+io.engine.use(passport.initialize());
+io.engine.use(passport.session());
 
 // Authentication (Passport)
 app.use(passport.initialize());
@@ -64,8 +77,8 @@ app.get("/health", (req, res) => {
   res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// Auth Routes
-app.use("/auth", authRouter);
+// Auth Routes (With Rate Limiting)
+app.use("/auth", authLimiter, authRouter);
 
 // Socket.IO Logic
 socketHandler(io);

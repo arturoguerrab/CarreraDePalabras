@@ -1,6 +1,10 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { StopContext } from "../../../context/StopContext";
+import { useAuth } from "../../../context/AuthContext";
+import { useSocket } from "../../../context/SocketContext";
+import { useGame } from "../../../context/GameContext";
+import { useSound } from "../../../context/SoundContext";
+
 import StopMpView from "./StopMpView";
 import GameInputContainer from "./GameInputContainer";
 import StopContainer from "./StopContainer";
@@ -16,12 +20,13 @@ const StopMpContainer = () => {
   const navigate = useNavigate();
   const [showExitModal, setShowExitModal] = useState(false);
   
+  const { user } = useAuth();
+  const { socket } = useSocket();
+  const { playStopAlarm } = useSound();
   const {
-    socket,
     players,
     gameError,
     joinRoom,
-    user,
     leaveRoom,
     gameState,
     gameResults,
@@ -35,7 +40,7 @@ const StopMpContainer = () => {
     stoppedBy,
     startGame,
     backToLobby
-  } = useContext(StopContext);
+  } = useGame();
 
   useEffect(() => {
     // Intento de unión automática al entrar o refrescar
@@ -91,8 +96,11 @@ const StopMpContainer = () => {
       setShowStopNotification(true);
       setHasShownNotification(true); // Lock it so it doesn't open again this round
       setCanCloseNotification(false);
+      
+      // 🔊 Play Alarm Sound
+      playStopAlarm();
     }
-  }, [stoppedBy, gameState, showStopNotification, hasShownNotification]);
+  }, [stoppedBy, gameState, showStopNotification, hasShownNotification, playStopAlarm]);
 
   // Effect 1.5: Handle Timer (Independent of gameState changes)
   useEffect(() => {

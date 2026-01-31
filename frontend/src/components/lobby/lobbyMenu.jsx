@@ -1,9 +1,11 @@
-import React, { useContext } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
-import { StopContext } from "../../context/StopContext.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { useSound } from "../../context/SoundContext.jsx";
 
 const LobbyMenu = () => {
-	const { logout, user } = useContext(StopContext);
+	const { logout, user } = useAuth();
+	const { muted, toggleMute } = useSound();
 
 	// Prioridad de visualización: Username > Nombre > Email
 	const displayName = user?.username || user?.userName || user?.displayName || user?.firstName || user?.email;
@@ -12,6 +14,17 @@ const LobbyMenu = () => {
 		<div className="min-h-screen bg-[#6366f1] flex items-center justify-center px-4 py-12 font-['Press_Start_2P'] relative overflow-hidden">
 			{/* Fondo Cuadriculado */}
 			<div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(#000 2px, transparent 2px), linear-gradient(90deg, #000 2px, transparent 2px)', backgroundSize: '40px 40px' }}></div>
+
+			{/* Audio Toggle */}
+			<div className="absolute top-4 right-4 z-50 flex flex-col gap-2 items-end">
+				<button 
+					onClick={toggleMute}
+					className="bg-white border-2 border-black p-2 rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-none transition-all text-[10px] w-32"
+				>
+					{muted ? "🔇 SFX OFF" : "🔊 SFX ON"}
+				</button>
+
+			</div>
 
 			{/* Decoración: Bloques Arcade */}
 			<div className="absolute top-20 left-10 w-16 h-16 bg-[#4ade80] border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] transform -rotate-12"></div>

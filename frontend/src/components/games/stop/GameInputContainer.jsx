@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useContext, useRef } from "react";
-import { StopContext } from "../../../context/StopContext";
+import React, { useState, useEffect, useRef } from "react";
+import { useGame } from "../../../context/GameContext";
+import { useSocket } from "../../../context/SocketContext";
 import GameInputView from "./GameInputView";
 
 /**
@@ -9,7 +10,8 @@ import GameInputView from "./GameInputView";
  * podrían afectar el rendimiento o interrumpir la conexión del socket en casos extremos.
  */
 const GameInputContainer = () => {
-  const { gameLetter, socket, roomId, gameCategories, stoppedBy, notifyStopPressedByMe, roundDuration } = useContext(StopContext);
+  const { gameLetter, roomId, gameCategories, stoppedBy, notifyStopPressedByMe, roundDuration } = useGame();
+  const { socket } = useSocket();
   
   // Referencia para almacenar las respuestas sin provocar rerenders al escribir
   const answersRef = useRef({});

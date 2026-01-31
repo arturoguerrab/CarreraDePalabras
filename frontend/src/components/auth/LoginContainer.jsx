@@ -1,6 +1,6 @@
-import React, { useState, useContext } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { StopContext } from "../../context/StopContext";
+import { useAuth } from "../../context/AuthContext";
 import LoginView from "./LoginView";
 
 /**
@@ -14,7 +14,7 @@ const LoginContainer = () => {
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
-  const { login, loginWithGoogle } = useContext(StopContext);
+  const { login, loginWithGoogle } = useAuth();
 
   /**
    * Maneja el envío del formulario de login.

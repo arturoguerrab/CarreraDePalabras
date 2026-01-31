@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useSound } from "../../../context/SoundContext";
 
 /**
  * GAME INPUT VIEW
@@ -6,6 +7,7 @@ import React, { useState, useEffect } from "react";
  */
 const GameInputView = ({ handleSubmit, handleInputChange, letra, categories = [], isSubmitting, roundDuration = 60, stoppedBy }) => {
   const [timeLeft, setTimeLeft] = useState(roundDuration);
+  const { playTick } = useSound();
 
   useEffect(() => {
     // If the round is stopped by someone, we shouldn't continue the timer locally
@@ -16,11 +18,18 @@ const GameInputView = ({ handleSubmit, handleInputChange, letra, categories = []
     // Timer interval
     const timer = setInterval(() => {
         setTimeLeft((prev) => {
+            const newValue = prev - 1;
+            
+            // Sonido de Tic-Tac
+            if (newValue >= 0) {
+               playTick(newValue); 
+            }
+
             if (prev <= 1) {
                 clearInterval(timer);
                 return 0;
             }
-            return prev - 1;
+            return newValue;
         });
     }, 1000);
 

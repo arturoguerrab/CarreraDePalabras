@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useContext, useRef } from "react";
-import { StopContext } from "../../context/StopContext";
+import React, { useState, useEffect, useRef } from "react";
+import { useSocket } from "../../context/SocketContext.jsx";
+import { useSound } from "../../context/SoundContext.jsx";
 
 /**
  * RACE COUNTDOWN
@@ -7,7 +8,8 @@ import { StopContext } from "../../context/StopContext";
  * Se activa mediante el evento de socket 'start_countdown'.
  */
 const RaceCountdown = () => {
-  const { socket } = useContext(StopContext);
+  const { socket } = useSocket();
+  const { playCountdown } = useSound();
   const [count, setCount] = useState(null);
   const [animate, setAnimate] = useState(false);
   const intervalRef = useRef(null);
@@ -27,6 +29,13 @@ const RaceCountdown = () => {
       const triggerAnimation = (val) => {
         setCount(val);
         setAnimate(true);
+        // Sonido
+        if (val === "GO!") {
+             playCountdown(true);
+        } else {
+             playCountdown(false);
+        }
+        
         // Pequeño retardo para reiniciar la animación
         setTimeout(() => setAnimate(false), 300);
       };
@@ -54,7 +63,7 @@ const RaceCountdown = () => {
       socket.off("start_countdown", handleCountdown);
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [socket]);
+  }, [socket, playCountdown]);
 
   if (count === null) return null;
 

@@ -1,5 +1,5 @@
-import React, { useState, useContext } from "react";
-import { StopContext } from "../../context/StopContext";
+import React, { useState } from "react";
+import { useAuth } from "../../context/AuthContext";
 import SetUsernameView from "./SetUsernameView";
 
 /**
@@ -11,7 +11,7 @@ const SetUsernameContainer = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { updateUsername, logout } = useContext(StopContext);
+  const { updateUsername, logout } = useAuth();
 
   /**
    * Envía el nuevo nombre de usuario a la base de datos.

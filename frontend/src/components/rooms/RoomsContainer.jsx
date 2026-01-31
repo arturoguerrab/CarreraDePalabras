@@ -1,14 +1,13 @@
-import React, { useState, useEffect, useContext } from "react";
-import { StopContext } from "../../context/StopContext";
+import React, { useState, useEffect } from "react";
+import { useGame } from "../../context/GameContext.jsx";
 import RoomsView from "./RoomsView";
 
 /**
  * ROOMS CONTAINER
  * Gestiona la lógica para unirse o crear salas de juego.
- * Aunque actualmente está ligado a StopContext, su estructura es agnóstica al juego.
  */
 const RoomsContainer = () => {
-  const { gameError, createRoom, joinRoom, clearError } = useContext(StopContext);
+  const { gameError, createRoom, joinRoom, clearError } = useGame();
   const [roomToJoin, setRoomToJoin] = useState("");
 
   // Limpiar errores solo al montar el componente

@@ -1,20 +1,16 @@
-import { createContext, useState, useEffect, useCallback } from "react";
-import stopAPI from "../stopAPI";
-import io from "socket.io-client";
+import { createContext, useState, useEffect, useCallback, useContext } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSocket } from "./SocketContext";
+import { useAuth } from "./AuthContext";
 
-/**
- * STOP CONTEXT
- * Gestiona el estado global del juego, la autenticación y la comunicación en tiempo real.
- */
-export const StopContext = createContext();
+export const GameContext = createContext();
 
-export const StopContextProvider = ({ children }) => {
-  // --- Estados de Autenticación ---
-  const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+export const useGame = () => useContext(GameContext);
+
+export const GameContextProvider = ({ children }) => {
+  const { socket } = useSocket();
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const [socket, setSocket] = useState(null);
 
   // --- Estado del Juego y la Sala ---
   const [roomId, setRoomId] = useState(null);
@@ -43,42 +39,6 @@ export const StopContextProvider = ({ children }) => {
     setCountdown(null);
     setStoppedBy(null);
   }, []);
-
-  // --- Verificación de Sesión Inicial ---
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const response = await stopAPI.get("/auth/user");
-        if (response.data.isLoggedIn) setUser(response.data.user);
-        else setUser(null);
-      } catch (error) {
-        console.error("❌ Error de sesión:", error);
-        setUser(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    checkSession();
-  }, []);
-
-  // --- Gestión de Conexión del Socket ---
-  useEffect(() => {
-    if (!user) return;
-
-    const URL = import.meta.env.VITE_REACT_APP_BACKEND_URL || "http://localhost:3000";
-    const newSocket = io(URL, { withCredentials: true, autoConnect: true });
-
-    newSocket.on("connect", () => console.log(`🔌 Socket conectado: ${user.email}`));
-    newSocket.on("connect_error", (err) => console.error("❌ Error socket:", err));
-    
-    setSocket(newSocket);
-
-    // Cleanup: Disconnect when user changes (logout) or component unmounts
-    return () => {
-      newSocket.disconnect();
-      setSocket(null);
-    };
-  }, [user]);
 
   // --- Lógica de Eventos de Juego ---
   useEffect(() => {
@@ -135,7 +95,6 @@ export const StopContextProvider = ({ children }) => {
       }
     };
 
-
     // Suscripciones
     socket.on("room_created", onRoomCreated);
     socket.on("joined_room", onJoinedRoom);
@@ -165,32 +124,6 @@ export const StopContextProvider = ({ children }) => {
     };
   }, [socket, navigate, clearGameData]);
 
-  // --- Acciones de Usuario ---
-  const login = useCallback(async (email, password) => {
-    const response = await stopAPI.post("/auth/login", { email, password });
-    if (response.data.user) setUser(response.data.user);
-    return response;
-  }, []);
-
-  const register = useCallback((userData) => stopAPI.post("/auth/register", userData), []);
-
-  const logout = useCallback(async () => {
-    try {
-      await stopAPI.get("/auth/logout");
-      setUser(null);
-      setRoomId(null);
-      setPlayers([]);
-    } catch (err) {
-      console.error("❌ Error logout:", err);
-    }
-  }, []);
-
-  const updateUsername = useCallback(async (username) => {
-    const res = await stopAPI.post("/auth/set-username", { username });
-    if (res.data.user) setUser(res.data.user);
-    return res;
-  }, []);
-
   // --- Acciones de Juego (Socket Emitters) ---
   const createRoom = useCallback(() => {
     setGameError(null); // Clear any previous errors
@@ -203,6 +136,7 @@ export const StopContextProvider = ({ children }) => {
       socket?.emit("join_room", { room_id, user });
     }
   }, [socket, user]);
+  
   const startGame = useCallback((room_id, rounds = 5) => socket?.emit("start_game", { room_id, rounds }), [socket]);
   const nextRound = useCallback((room_id) => socket?.emit("next_round", room_id), [socket]);
   const resetGame = useCallback((room_id) => socket?.emit("reset_game", room_id), [socket]);
@@ -217,10 +151,6 @@ export const StopContextProvider = ({ children }) => {
     }
   }, [socket, user]);
 
-  const loginWithGoogle = useCallback(() => {
-    const URL = import.meta.env.VITE_REACT_APP_BACKEND_URL || "http://localhost:3000";
-    window.location.href = `${URL}/auth/google`;
-  }, []);
 
   const backToLobby = useCallback(() => setGameState("lobby"), []);
 
@@ -238,7 +168,6 @@ export const StopContextProvider = ({ children }) => {
   }, [user]);
 
   const value = {
-    user, isLoading, login, register, updateUsername, loginWithGoogle, logout, socket,
     roomId, players, gameError, createRoom, joinRoom, leaveRoom,
     gameState, gameLetter, gameCategories, startGame, gameResults,
     gameScores, isGameOver, roundInfo, nextRound, resetGame,
@@ -246,11 +175,9 @@ export const StopContextProvider = ({ children }) => {
     toggleReady,
     clearError: () => setGameError(null),
     backToLobby,
-    notifyStopPressedByMe, // Expose this
+    notifyStopPressedByMe,
     roundDuration,
   };
 
-  return <StopContext.Provider value={value}>{children}</StopContext.Provider>;
+  return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 };
-
-export default StopContextProvider;

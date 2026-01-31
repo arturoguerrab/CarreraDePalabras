@@ -1,233 +1,78 @@
-import { processRoundResults } from "./services/aiJudgeService.js";
-import * as roomService from "./services/roomService.js";
 import logger from "./utils/logger.js";
+import * as roomHandler from "./handlers/roomHandler.js";
+import * as gameHandler from "./handlers/gameHandler.js";
 
 /**
  * SOCKET HANDLER
- * Manages all real-time communication events for the game.
+ * Manages all real-time communication events for the game by delegating to specific handlers.
  */
 const socketHandler = (io) => {
-  
-  /**
-   * Helper: Start a round with a countdown.
-   */
-  const startRoundWithCountdown = (roomId) => {
-    const room = roomService.getRoom(roomId);
-    if (!room) return;
-
-    roomService.resetReadiness(roomId); // Reset ready status when round starts
-    io.to(roomId).emit("start_countdown", 3);
-
-    setTimeout(async () => {
-      const roomData = roomService.prepareNextRound(roomId);
-      if (!roomData) return;
-
-      // Clear any existing timer just in case
-      if (room.timer) clearTimeout(room.timer);
-
-      // Start the 60s Auto-Stop Timer
-      const TIME_LIMIT = 60; // seconds
-      room.timer = setTimeout(() => {
-        logger.info(`⏰ Time's up for room ${roomId}`);
-        
-        // Logic similar to stop_round but triggered by system
-        room.stoppedBy = "⏰ EL TIEMPO ⏰";
-        io.to(roomId).emit("force_submit", { stoppedBy: room.stoppedBy });
-        
-        // Allow a slight buffer for clients to submit
-        setTimeout(() => checkRoundComplete(roomId), 2000); 
-      }, TIME_LIMIT * 1000);
-
-      emitPlayerList(roomId, room.players); // Notify reset ONCE the round starts
-      io.to(roomId).emit("game_started", {
-        letter: roomData.letter,
-        categories: roomData.categories,
-        roundDuration: TIME_LIMIT
-      });
-    }, 3000);
-  };
-
-  /**
-   * Helper: Emit updated player list to a room.
-   */
-  const emitPlayerList = (roomId, players) => {
-    io.to(roomId).emit("update_player_list", players.map(p => ({
-      email: p.email,
-      displayName: p.username || p.firstName || p.email,
-      ready: p.ready
-    })));
-  };
-
-  /**
-   * Helper: Checks if all players submitted their answers.
-   */
-  const checkRoundComplete = async (roomId) => {
-    const room = roomService.getRoom(roomId);
-    if (!room || room.isCalculating) return;
-
-    if (room.isPlaying && room.currentCategories?.length > 0 && room.roundData.length >= room.players.length) {
-      await processRoundResults(io, roomId, room);
-    }
-  };
-
-  /**
-   * Helper: Handles the logic for toggling a player's ready status
-   * and checking if the game/round should start.
-   */
-  const handleToggleReady = (socket, roomId) => {
-    const room = roomService.getRoom(roomId);
-    if (!room) return;
-
-    logger.info(`🙋 Player ${socket.id} toggled ready in room ${roomId}`);
-    roomService.togglePlayerReady(roomId, socket.id);
-    emitPlayerList(roomId, room.players);
-
-    // Check if all are ready to proceed
-    const allReady = room.players.length > 0 && room.players.every(p => p.ready);
-    
-    if (allReady) {
-      logger.info(`✅ All players ready in room ${roomId}. Starting...`);
-      if (!room.isPlaying) {
-        room.isPlaying = true;
-        room.scores = {};
-        room.usedLetters = [];
-        room.config.currentRound = 1;
-      }
-      startRoundWithCountdown(roomId);
-    }
-  };
-
   io.on("connection", (socket) => {
-    logger.info(`🔌 New connection: ${socket.id}`);
+    // Security: Session Validation
+    const sessionUser = socket.request.user;
+    
+    // Passport attaches the user object to req.user
+    if (!sessionUser) {
+      logger.warn(`🔒 Unauthorized connection attempt: ${socket.id}`);
+      socket.disconnect();
+      return;
+    }
+
+    logger.info(`🔌 New connection: ${socket.id} (User: ${sessionUser.email})`);
 
     /**
      * Creation & Joining
      */
-    socket.on("create_room", (user) => {
-      const roomId = roomService.createRoom(user, socket.id);
-      socket.join(roomId);
-      const room = roomService.getRoom(roomId);
-
-      emitPlayerList(roomId, room.players);
-      socket.emit("room_created", roomId);
+    socket.on("create_room", () => {
+      // User is now extracted from socket session in handler
+      roomHandler.handleCreateRoom(io, socket);
     });
 
-    socket.on("join_room", ({ room_id, user }) => {
-      const result = roomService.joinRoom(room_id, user, socket.id);
-      if (result.error) {
-        return socket.emit("error_joining", result.error);
-      }
-
-      socket.join(room_id);
-      socket.emit("joined_room", room_id);
-      emitPlayerList(room_id, result.room.players);
+    socket.on("join_room", (data) => {
+      roomHandler.handleJoinRoom(io, socket, data);
     });
 
     /**
      * Game Lifecycle
      */
     socket.on("toggle_ready", (roomId) => {
-      handleToggleReady(socket, roomId);
+      gameHandler.handleToggleReady(io, socket, roomId);
     });
 
     socket.on("start_game", (data) => {
-      try {
-        logger.info(`🎮 Start Game requested via socket ${socket.id}`, data);
-        const roomId = typeof data === 'object' ? data.room_id : data;
-        const room = roomService.getRoom(roomId);
-        
-        if (room) {
-           if (typeof data === 'object' && data.rounds) {
-              const r = Number(data.rounds);
-              if (!isNaN(r)) {
-                 room.config.totalRounds = r;
-                 logger.info(`✅ Room ${roomId} rounds set to ${r}`);
-              }
-           }
-           // Decoupled logic: start_game ONLY sets configuration.
-           // The frontend must call toggle_ready explicitly afterwards.
-           logger.info(`✅ Room ${roomId} configured. Waiting for toggle_ready...`);
-        } else {
-           logger.error(`❌ Room ${roomId} not found for start_game`);
-        }
-      } catch (err) {
-        logger.error("❌ Error in start_game handler:", err);
-      }
+      gameHandler.handleStartGame(io, socket, data);
     });
 
     socket.on("next_round", (roomId) => {
-      handleToggleReady(socket, roomId);
+      // Re-using toggle ready logic for next round as in original
+      gameHandler.handleToggleReady(io, socket, roomId);
     });
 
     socket.on("reset_game", (roomId) => {
-      const room = roomService.getRoom(roomId);
-      if (room) {
-        if (room.timer) clearTimeout(room.timer); // Clear timer on reset
-        room.isPlaying = false;
-        room.scores = {};
-        room.roundData = [];
-        room.usedLetters = [];
-        room.config.currentRound = 1;
-        roomService.resetReadiness(roomId);
-        io.to(roomId).emit("game_reset");
-        emitPlayerList(roomId, room.players);
-      }
+      gameHandler.handleResetGame(io, socket, roomId);
     });
 
     /**
      * Round Actions
      */
-    socket.on("stop_round", ({ roomId, answers }) => {
-      const room = roomService.getRoom(roomId);
-      if (!room) return socket.emit("error_joining", "La sala ha expirado.");
-      
-      if (room.roundData.find(d => d.playerId === socket.id)) return;
-
-      // Clear the auto-stop timer since a player stopped it manually
-      if (room.timer) clearTimeout(room.timer);
-
-      // Find the player who pressed STOP
-      const stopper = room.players.find(p => p.id === socket.id);
-      const stopperName = stopper ? (stopper.username || stopper.firstName || stopper.email) : "Alguien";
-
-      room.roundData.push({ playerId: socket.id, answers });
-      
-      // Broadcast who pressed STOP to all other players
-      socket.to(roomId).emit("force_submit", { stoppedBy: stopperName });
-      
-      // Store stopper info for results
-      room.stoppedBy = stopperName;
-      
-      checkRoundComplete(roomId);
+    socket.on("stop_round", (data) => {
+      gameHandler.handleStopRound(io, socket, data);
     });
 
-    socket.on("submit_answers", ({ roomId, answers }) => {
-      const room = roomService.getRoom(roomId);
-      if (room && !room.roundData.find(d => d.playerId === socket.id)) {
-        room.roundData.push({ playerId: socket.id, answers });
-        checkRoundComplete(roomId);
-      }
+    socket.on("submit_answers", (data) => {
+      gameHandler.handleSubmitAnswers(io, socket, data);
     });
 
     /**
      * Disconnection Handling
      */
-    socket.on("leave_room", ({ room_id, user }) => {
-      const room = roomService.removePlayer(room_id, socket.id);
-      if (room) {
-        socket.leave(room_id);
-        emitPlayerList(room_id, room.players);
-        checkRoundComplete(room_id);
-      }
+    socket.on("leave_room", (data) => {
+      // Pass checkRoundComplete as callback to verify if game should end/proceed when someone leaves
+      roomHandler.handleLeaveRoom(io, socket, data, (roomId) => gameHandler.checkRoundComplete(io, roomId));
     });
 
     socket.on("disconnect", () => {
-      const result = roomService.removePlayerBySocketId(socket.id);
-      if (result) {
-        const { roomId, room } = result;
-        emitPlayerList(roomId, room.players);
-        checkRoundComplete(roomId);
-      }
+      roomHandler.handleDisconnect(io, socket, (roomId) => gameHandler.checkRoundComplete(io, roomId));
     });
   });
 };

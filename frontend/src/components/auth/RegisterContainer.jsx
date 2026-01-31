@@ -1,5 +1,5 @@
-import React, { useState, useContext } from "react";
-import { StopContext } from "../../context/StopContext";
+import React, { useState } from "react";
+import { useAuth } from "../../context/AuthContext";
 import RegisterView from "./RegisterView";
 
 /**
@@ -16,7 +16,7 @@ const RegisterContainer = () => {
   const [exito, setExito] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { register } = useContext(StopContext);
+  const { register } = useAuth();
 
   /**
    * Procesa el registro de un nuevo usuario.

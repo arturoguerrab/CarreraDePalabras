@@ -1,5 +1,4 @@
-import { useContext } from "react";
-import { StopContext } from "../../context/StopContext.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
 import { Navigate, Outlet } from "react-router-dom";
 import SetUsernameContainer from "./SetUsernameContainer";
 
@@ -9,7 +8,7 @@ import SetUsernameContainer from "./SetUsernameContainer";
  * Si el usuario existe pero no tiene nickname (ej. tras Google OAuth), fuerza la vista de SetUsername.
  */
 const ValidateSession = () => {
-  const { user, isLoading } = useContext(StopContext);
+  const { user, isLoading } = useAuth();
 
   if (isLoading) {
     return (
