@@ -1,10 +1,5 @@
-import React from "react";
 import { Link } from "react-router-dom";
 
-/**
- * LOGIN VIEW
- * Renderiza la interfaz de inicio de sesión con estilo retro arcade.
- */
 const LoginView = ({
   email,
   setEmail,
@@ -28,7 +23,7 @@ const LoginView = ({
         {/* Card Principal */}
         <div className="bg-white border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] rounded-3xl p-8 relative text-center">
           
-          <h1 className="text-2xl text-black mb-8 uppercase drop-shadow-sm">ENTRAR</h1>
+          <h1 className="text-2xl text-black mb-8 uppercase drop-shadow-sm">STOP GAME</h1>
           <p className="text-xs text-gray-500 mb-6 uppercase">Acceso Jugador</p>
 
           {/* Alerta de Error */}
@@ -64,7 +59,7 @@ const LoginView = ({
                 loading ? "opacity-50 cursor-not-allowed" : ""
               }`}
             >
-              {loading ? "Buscando..." : "Jugar"}
+              {loading ? "Buscando..." : "Iniciar Sesión"}
             </button>
           </form>
 
@@ -87,12 +82,12 @@ const LoginView = ({
           </button>
 
           <div className="mt-8 text-center text-[10px] text-gray-500">
-            ¿No tienes carnet?{" "}
+            ¿No tienes cuenta?{" "}
             <Link
               to="/registro"
               className="text-blue-600 hover:text-blue-800 underline decoration-wavy decoration-2"
             >
-              Registrarse
+              Registrate
             </Link>
           </div>
         </div>

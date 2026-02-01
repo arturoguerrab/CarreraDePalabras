@@ -14,15 +14,15 @@ const config = {
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
 };
 
-// Validation of critical environment variables
+// Validacion de variables necesarias
 const requiredVars = ["SESSION_SECRET", "MONGO_DB_URI"];
 const missingVars = requiredVars.filter((varName) => !process.env[varName]);
 
 if (missingVars.length > 0) {
   console.error(
-    `❌ Error: Las siguientes variables de entorno son obligatorias: ${missingVars.join(
-      ", "
-    )}`
+    `Error: Las siguientes variables de entorno son obligatorias: ${missingVars.join(
+      ", ",
+    )}`,
   );
   process.exit(1);
 }

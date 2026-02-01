@@ -2,21 +2,13 @@ import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { Strategy as LocalStrategy } from "passport-local";
 import bcrypt from "bcryptjs";
-
-// Models & Config
 import User from "./models/userModel.js";
 import config from "./config/env.js";
 
-/**
- * Serialization: Store the user ID in the session.
- */
 passport.serializeUser((user, done) => {
   done(null, user._id);
 });
 
-/**
- * Deserialization: Retrieve the user from the database using the session ID.
- */
 passport.deserializeUser(async (_id, done) => {
   try {
     const user = await User.findById(_id);
@@ -26,9 +18,7 @@ passport.deserializeUser(async (_id, done) => {
   }
 });
 
-/**
- * Local Strategy: Authenticate using email and password.
- */
+// Local Strategy
 passport.use(
   new LocalStrategy(
     {
@@ -50,13 +40,11 @@ passport.use(
       } catch (err) {
         return done(err);
       }
-    }
-  )
+    },
+  ),
 );
 
-/**
- * Google OAuth 2.0 Strategy: Authenticate using Google accounts.
- */
+// Google OAuth 2.0 Strategy
 passport.use(
   new GoogleStrategy(
     {
@@ -67,26 +55,33 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        // 1. Check if user already exists by Google ID
         let user = await User.findOne({ googleId: profile.id });
 
         if (user) {
           return done(null, user);
         }
 
-        // 2. Lookup by Email to link existing accounts (Local -> Google)
         const email = profile.emails?.[0]?.value;
         if (email) {
           user = await User.findOne({ email });
           if (user) {
-            // Link account if it exists by email
+            // Link account
             user.googleId = profile.id;
             await user.save();
             return done(null, user);
           }
         }
 
-        // 3. Create new user if not found
+        // Validar que tengamos un email antes de crear un nuevo usuario
+        if (!email) {
+          return done(
+            new Error(
+              "No se pudo obtener un correo electrónico de la cuenta de Google.",
+            ),
+            null,
+          );
+        }
+
         const newUser = new User({
           googleId: profile.id,
           firstName: profile.name?.givenName || profile.displayName,
@@ -99,8 +94,8 @@ passport.use(
       } catch (err) {
         return done(err, null);
       }
-    }
-  )
+    },
+  ),
 );
 
 export default passport;

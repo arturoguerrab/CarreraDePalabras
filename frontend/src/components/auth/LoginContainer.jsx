@@ -1,12 +1,10 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import LoginView from "./LoginView";
 
-/**
- * LOGIN CONTAINER
- * Lógica de estado y envío para el inicio de sesión.
- */
+// Lógica de estado y envío para el inicio de sesión.
+
 const LoginContainer = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,7 +15,6 @@ const LoginContainer = () => {
   const { login, loginWithGoogle } = useAuth();
 
   /**
-   * Maneja el envío del formulario de login.
    * @param {Event} e - Evento de envío.
    */
   const handleSubmit = async (e) => {
@@ -25,14 +22,17 @@ const LoginContainer = () => {
     setError("");
     setLoading(true);
 
-    if (!email.trim() || !password.trim()) {
+    const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail || !cleanPassword) {
       setError("Por favor, completa todos los campos.");
       setLoading(false);
       return;
     }
 
     try {
-      const response = await login(email, password);
+      const response = await login(cleanEmail, cleanPassword);
 
       if (response.status === 200) {
         navigate("/lobby");

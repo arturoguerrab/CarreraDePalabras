@@ -2,59 +2,45 @@ import logger from "./utils/logger.js";
 import * as roomHandler from "./handlers/roomHandler.js";
 import * as gameHandler from "./handlers/gameHandler.js";
 
-/**
- * SOCKET HANDLER
- * Manages all real-time communication events for the game by delegating to specific handlers.
- */
+// Maneja todos las recciones entre cliente y socket y lo deriva al socket correspondiente
 const socketHandler = (io) => {
   io.on("connection", (socket) => {
-    // Security: Session Validation
+    // Valida la sesion
     const sessionUser = socket.request.user;
-    
-    // Passport attaches the user object to req.user
+
     if (!sessionUser) {
-      logger.warn(`🔒 Unauthorized connection attempt: ${socket.id}`);
+      logger.warn(`Unauthorized connection attempt: ${socket.id}`);
       socket.disconnect();
       return;
     }
 
-    logger.info(`🔌 New connection: ${socket.id} (User: ${sessionUser.email})`);
+    logger.info(`New connection: ${socket.id} (User: ${sessionUser.email})`);
 
-    /**
-     * Creation & Joining
-     */
+    // createRoom - Game Context
     socket.on("create_room", () => {
-      // User is now extracted from socket session in handler
       roomHandler.handleCreateRoom(io, socket);
     });
-
+    //joinRoom - Game Context
     socket.on("join_room", (data) => {
       roomHandler.handleJoinRoom(io, socket, data);
     });
-
-    /**
-     * Game Lifecycle
-     */
+    // ToggleReady - Game Context
     socket.on("toggle_ready", (roomId) => {
       gameHandler.handleToggleReady(io, socket, roomId);
     });
-
+    // startGame - Game Context
     socket.on("start_game", (data) => {
-      gameHandler.handleStartGame(io, socket, data);
+      gameHandler.handleStartGame(socket, data);
     });
-
+    // nextRound - Game Context
     socket.on("next_round", (roomId) => {
-      // Re-using toggle ready logic for next round as in original
       gameHandler.handleToggleReady(io, socket, roomId);
     });
-
+    // resetGame - Game Context
     socket.on("reset_game", (roomId) => {
-      gameHandler.handleResetGame(io, socket, roomId);
+      gameHandler.handleResetGame(io, roomId);
     });
 
-    /**
-     * Round Actions
-     */
     socket.on("stop_round", (data) => {
       gameHandler.handleStopRound(io, socket, data);
     });
@@ -62,17 +48,17 @@ const socketHandler = (io) => {
     socket.on("submit_answers", (data) => {
       gameHandler.handleSubmitAnswers(io, socket, data);
     });
-
-    /**
-     * Disconnection Handling
-     */
+    // LeaveRoom - Game Context
     socket.on("leave_room", (data) => {
-      // Pass checkRoundComplete as callback to verify if game should end/proceed when someone leaves
-      roomHandler.handleLeaveRoom(io, socket, data, (roomId) => gameHandler.checkRoundComplete(io, roomId));
+      roomHandler.handleLeaveRoom(io, socket, data, (roomId) =>
+        gameHandler.checkRoundComplete(io, roomId),
+      );
     });
 
     socket.on("disconnect", () => {
-      roomHandler.handleDisconnect(io, socket, (roomId) => gameHandler.checkRoundComplete(io, roomId));
+      roomHandler.handleDisconnect(io, socket, (roomId) =>
+        gameHandler.checkRoundComplete(io, roomId),
+      );
     });
   });
 };

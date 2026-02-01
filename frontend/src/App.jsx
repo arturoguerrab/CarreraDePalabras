@@ -14,12 +14,11 @@ import NotFoundView from "./components/common/NotFoundView.jsx";
 import RegisterContainer from "./components/auth/RegisterContainer.jsx";
 import LoginContainer from "./components/auth/LoginContainer.jsx";
 
-// Game Components (Lobby & Module)
+// Game Components
 import Lobby from "./components/lobby/LobbyMenu.jsx";
 import GameInputContainer from "./components/games/stop/GameInputContainer.jsx";
 import RoomsContainer from "./components/rooms/RoomsContainer.jsx";
 import StopMpContainer from "./components/games/stop/StopMpContainer.jsx";
-
 
 function App() {
   return (
@@ -30,13 +29,13 @@ function App() {
             <SoundContextProvider>
               {/* Componente global para la cuenta regresiva antes de empezar */}
               <RaceCountdown />
-              
+
               <Routes>
-                {/* --- Rutas Públicas --- */}
+                {/* Rutas Públicas */}
                 <Route path="/registro" element={<RegisterContainer />} />
                 <Route path="/login" element={<LoginContainer />} />
 
-                {/* --- Rutas Protegidas (Requieren sesión activa) --- */}
+                {/* Rutas Protegidas (Requieren sesión activa) */}
                 <Route element={<ValidateSession />}>
                   <Route path="/" element={<Navigate to="/lobby" replace />} />
                   <Route path="/lobby" element={<Lobby />} />
@@ -45,7 +44,7 @@ function App() {
                   <Route path="/room/:roomId" element={<StopMpContainer />} />
                 </Route>
 
-                {/* --- Manejo de Rutas No Encontradas --- */}
+                {/* Manejo de Rutas No Encontradas */}
                 <Route path="*" element={<NotFoundView />} />
               </Routes>
             </SoundContextProvider>

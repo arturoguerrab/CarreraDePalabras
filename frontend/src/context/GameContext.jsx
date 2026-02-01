@@ -1,4 +1,10 @@
-import { createContext, useState, useEffect, useCallback, useContext } from "react";
+import {
+  createContext,
+  useState,
+  useEffect,
+  useCallback,
+  useContext,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { useSocket } from "./SocketContext";
 import { useAuth } from "./AuthContext";
@@ -12,7 +18,7 @@ export const GameContextProvider = ({ children }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // --- Estado del Juego y la Sala ---
+  // Estados del Juego y la Sala
   const [roomId, setRoomId] = useState(null);
   const [players, setPlayers] = useState([]);
   const [gameError, setGameError] = useState(null);
@@ -24,27 +30,27 @@ export const GameContextProvider = ({ children }) => {
   const [isGameOver, setIsGameOver] = useState(false);
   const [roundInfo, setRoundInfo] = useState({ current: 0, total: 0 });
   const [countdown, setCountdown] = useState(null);
-  const [stoppedBy, setStoppedBy] = useState(null); // Who pressed STOP
-  const [roundDuration, setRoundDuration] = useState(60); // Default round duration
+  const [stoppedBy, setStoppedBy] = useState(null);
+  const [roundDuration, setRoundDuration] = useState(60);
 
-  /**
-   * Limpia el estado del juego para una nueva partida o sala.
-   */
+  // Limpia el estado del juego para una nueva partida o sala.
   const clearGameData = useCallback(() => {
+    setGameError(null);
     setGameResults([]);
     setGameScores({});
     setIsGameOver(false);
     setRoundInfo({ current: 0, total: 0 });
-    setGameError(null);
     setCountdown(null);
     setStoppedBy(null);
   }, []);
 
-  // --- Lógica de Eventos de Juego ---
+  // Lógica de Eventos de Juego
   useEffect(() => {
     if (!socket) return;
 
-    // Handlers definidos fuera para limpieza y claridad
+    // Handlers de los eventos
+
+    // Cuando se crea una sala nueva
     const onRoomCreated = (id) => {
       setRoomId(id);
       setGameState("lobby");
@@ -52,6 +58,7 @@ export const GameContextProvider = ({ children }) => {
       navigate(`/room/${id}`);
     };
 
+    // Cuando un jugador entra a una sala ya creada
     const onJoinedRoom = (id) => {
       setRoomId(id);
       setGameState("lobby");
@@ -59,21 +66,24 @@ export const GameContextProvider = ({ children }) => {
       navigate(`/room/${id}`);
     };
 
+    //Cuenta atras para empezar la ronda
     const onCountdown = (seconds) => {
       setCountdown(seconds);
       setGameError(null);
-      setStoppedBy(null); // Clear stoppedBy when countdown starts
+      setStoppedBy(null); // Limpia stoppedBy antes de iniciar una ronda
     };
 
+    // Set inicial de una partida
     const onGameStarted = ({ letter, categories, roundDuration: duration }) => {
       setCountdown(null);
       setGameLetter(letter);
       setGameCategories(categories || []);
       setGameState("playing");
-      setStoppedBy(null); // Ensure stoppedBy is cleared when game starts
+      setStoppedBy(null);
       if (duration) setRoundDuration(duration);
     };
 
+    // Al momento de ver los resultados de cada ronda
     const onRoundResults = (data) => {
       if (data.results) {
         setGameResults(data.results);
@@ -87,28 +97,30 @@ export const GameContextProvider = ({ children }) => {
       setGameState("results");
     };
 
+    // Crea la espera para mostrar el cartel de quien detuvo el juego mientras calcula
     const onCalculating = () => setGameState("calculating");
 
+    // Accion cuando un jugador hace STOP para todos
     const onForceSubmit = (data) => {
       if (data && data.stoppedBy) {
         setStoppedBy(data.stoppedBy);
       }
     };
 
-    // Suscripciones
+    // Escucha de eventos emitidos en el back
     socket.on("room_created", onRoomCreated);
-    socket.on("joined_room", onJoinedRoom);
-    socket.on("update_player_list", setPlayers);
-    socket.on("error_joining", (msg) => setGameError(msg));
-    socket.on("start_countdown", onCountdown);
-    socket.on("game_started", onGameStarted);
+    socket.on("joined_room", onJoinedRoom); // handleJoinRoom- Room Handler
+    socket.on("update_player_list", setPlayers); //emitPlayerList - Room Handler
+    socket.on("error_joining", (msg) => setGameError(msg)); //handleCreteRoom / handleJoinRoom - Room Handler
+    socket.on("start_countdown", onCountdown); //startRoundWithCountdown - GameHandler
+    socket.on("game_started", onGameStarted); //startRoundWithCountdown - GameHandler
     socket.on("round_results", onRoundResults);
     socket.on("calculating_results", onCalculating);
-    socket.on("force_submit", onForceSubmit); // Listen for STOP notifications
+    socket.on("force_submit", onForceSubmit); //startRoundWithCountdown / handleStopRound - GameHandler
     socket.on("game_reset", () => {
       setGameState("lobby");
       clearGameData();
-    });
+    }); //handleResetGame - gameHandler
 
     return () => {
       socket.off("room_created", onRoomCreated);
@@ -124,54 +136,86 @@ export const GameContextProvider = ({ children }) => {
     };
   }, [socket, navigate, clearGameData]);
 
-  // --- Acciones de Juego (Socket Emitters) ---
+  // Acciones de Juego (Socket Emitters)
   const createRoom = useCallback(() => {
-    setGameError(null); // Clear any previous errors
+    setGameError(null);
     socket?.emit("create_room", user);
-  }, [socket, user]);
+  }, [socket, user, setGameError]);
 
-  const joinRoom = useCallback((room_id) => {
-    if (room_id?.trim()) {
-      setGameError(null); // Clear any previous errors
-      socket?.emit("join_room", { room_id, user });
-    }
-  }, [socket, user]);
-  
-  const startGame = useCallback((room_id, rounds = 5) => socket?.emit("start_game", { room_id, rounds }), [socket]);
-  const nextRound = useCallback((room_id) => socket?.emit("next_round", room_id), [socket]);
-  const resetGame = useCallback((room_id) => socket?.emit("reset_game", room_id), [socket]);
+  const joinRoom = useCallback(
+    (room_id) => {
+      if (room_id?.trim()) {
+        setGameError(null);
+        socket?.emit("join_room", { room_id, user });
+      }
+    },
+    [socket, user, setGameError],
+  );
 
-  const leaveRoom = useCallback((room_id) => {
-    if (room_id && user) {
-      socket?.emit("leave_room", { room_id, user });
-      setRoomId(null);
-      setPlayers([]);
-      setGameState("lobby");
-      setCountdown(null);
-    }
-  }, [socket, user]);
+  const startGame = useCallback(
+    (room_id, rounds = 5) => socket?.emit("start_game", { room_id, rounds }),
+    [socket],
+  );
 
+  const nextRound = useCallback(
+    (room_id) => socket?.emit("next_round", room_id),
+    [socket],
+  );
+
+  const resetGame = useCallback(
+    (room_id) => socket?.emit("reset_game", room_id),
+    [socket],
+  );
+
+  const leaveRoom = useCallback(
+    (room_id) => {
+      if (room_id && user) {
+        socket?.emit("leave_room", { room_id });
+        setRoomId(null);
+        setPlayers([]);
+        setGameState("lobby");
+        setCountdown(null);
+      }
+    },
+    [socket, user],
+  );
 
   const backToLobby = useCallback(() => setGameState("lobby"), []);
 
-  const toggleReady = useCallback((room_id) => {
-    if (room_id && socket) {
-      socket.emit("toggle_ready", room_id);
-    }
-  }, [socket]);
+  const toggleReady = useCallback(
+    (room_id) => {
+      if (room_id && socket) {
+        socket.emit("toggle_ready", room_id);
+      }
+    },
+    [socket],
+  );
 
-  // Optimistic update for stopper to avoid seeing 'loading' screen
   const notifyStopPressedByMe = useCallback(() => {
     if (user) {
-        setStoppedBy(user.username || user.firstName || "Yo");
+      setStoppedBy(user.username || user.firstName || "Yo");
     }
   }, [user]);
 
   const value = {
-    roomId, players, gameError, createRoom, joinRoom, leaveRoom,
-    gameState, gameLetter, gameCategories, startGame, gameResults,
-    gameScores, isGameOver, roundInfo, nextRound, resetGame,
-    countdown, stoppedBy,
+    roomId,
+    players,
+    gameError,
+    createRoom,
+    joinRoom,
+    leaveRoom,
+    gameState,
+    gameLetter,
+    gameCategories,
+    startGame,
+    gameResults,
+    gameScores,
+    isGameOver,
+    roundInfo,
+    nextRound,
+    resetGame,
+    countdown,
+    stoppedBy,
     toggleReady,
     clearError: () => setGameError(null),
     backToLobby,

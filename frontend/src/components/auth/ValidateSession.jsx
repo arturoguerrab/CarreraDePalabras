@@ -3,9 +3,8 @@ import { Navigate, Outlet } from "react-router-dom";
 import SetUsernameContainer from "./SetUsernameContainer";
 
 /**
- * VALIDATE SESSION
- * Middleware de cliente que verifica si hay un usuario logueado.
- * Si el usuario existe pero no tiene nickname (ej. tras Google OAuth), fuerza la vista de SetUsername.
+ * Validacion de la sesion para las rutas protegidas
+ * Si el usuario existe pero no tiene nickname, fuerza la vista de SetUsername.
  */
 const ValidateSession = () => {
   const { user, isLoading } = useAuth();

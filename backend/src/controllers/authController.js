@@ -3,9 +3,7 @@ import User from "../models/userModel.js";
 import passport from "../passportConfig.js";
 import config from "../config/env.js";
 
-/**
- * Helper to format user response consistently.
- */
+// Normalizacion del Usuario
 const formatUserResponse = (user) => ({
   id: user._id,
   email: user.email,
@@ -15,9 +13,7 @@ const formatUserResponse = (user) => ({
   rol: user.rol,
 });
 
-/**
- * Register a new user.
- */
+// Registro de Usuario
 export const registerUser = async (req, res, next) => {
   try {
     const { email, password, username, firstName, lastName } = req.body;
@@ -26,7 +22,8 @@ export const registerUser = async (req, res, next) => {
 
     if (!email || !password || !firstName || !lastName) {
       return res.status(400).json({
-        message: "Faltan campos obligatorios (Nombre, Apellido, Email, Password).",
+        message:
+          "Faltan campos obligatorios (Nombre, Apellido, Email, Password).",
       });
     }
 
@@ -38,7 +35,9 @@ export const registerUser = async (req, res, next) => {
     if (cleanUsername) {
       const existingUsername = await User.findOne({ username: cleanUsername });
       if (existingUsername) {
-        return res.status(400).json({ message: "El nombre de usuario ya está en uso." });
+        return res
+          .status(400)
+          .json({ message: "El nombre de usuario ya está en uso." });
       }
     }
 
@@ -61,21 +60,23 @@ export const registerUser = async (req, res, next) => {
     });
   } catch (error) {
     if (error.code === 11000) {
-      return res.status(400).json({ message: "El email o username ya existe." });
+      return res
+        .status(400)
+        .json({ message: "El email o username ya existe." });
     }
-    next(error); // Delegate to global error handler
+    next(error);
   }
 };
 
-/**
- * Log in a user using Local Strategy.
- */
+// Inicio de sesion
 export const loginUser = (req, res, next) => {
   passport.authenticate("local", (err, user, info) => {
     if (err) return next(err);
 
     if (!user) {
-      return res.status(401).json({ message: info?.message || "Credenciales inválidas" });
+      return res
+        .status(401)
+        .json({ message: info?.message || "Credenciales inválidas" });
     }
 
     req.logIn(user, (err) => {
@@ -89,9 +90,7 @@ export const loginUser = (req, res, next) => {
   })(req, res, next);
 };
 
-/**
- * Log out the current user.
- */
+//Cierre de sesion
 export const logoutUser = (req, res, next) => {
   req.logout((err) => {
     if (err) return next(err);
@@ -99,9 +98,7 @@ export const logoutUser = (req, res, next) => {
   });
 };
 
-/**
- * Get current authenticated user session.
- */
+//Obtener el usuario con sesion activa
 export const getUser = (req, res) => {
   if (req.isAuthenticated()) {
     res.status(200).json({
@@ -113,9 +110,7 @@ export const getUser = (req, res) => {
   }
 };
 
-/**
- * Set or update username for an authenticated user.
- */
+// Asignar username
 export const setUsername = async (req, res, next) => {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ message: "No estás autenticado." });
@@ -152,16 +147,12 @@ export const setUsername = async (req, res, next) => {
   }
 };
 
-/**
- * Initiate Google OAuth authentication.
- */
+// Inicio de sesion con Google
 export const googleAuth = passport.authenticate("google", {
   scope: ["profile", "email"],
 });
 
-/**
- * Handle Google OAuth callback.
- */
+// Google OAuth callback.
 export const googleAuthCallback = passport.authenticate("google", {
   failureRedirect: `${config.CLIENT_URL}/login?error=google`,
   successRedirect: `${config.CLIENT_URL}/lobby`,

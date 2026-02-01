@@ -1,45 +1,37 @@
 import mongoose from "mongoose";
 import config from "./config/env.js";
 
-/**
- * Event handlers for monitoring Mongoose connection state.
- */
+// Eventos Mongoose
 mongoose.connection.on("connected", () => {
-  console.log("✅ MongoDB: Conexión establecida");
+  console.log("MongoDB: Conexión establecida");
 });
 
 mongoose.connection.on("error", (err) => {
-  console.error("❌ MongoDB: Error de conexión:", err.message);
+  console.error("MongoDB: Error de conexión:", err.message);
 });
 
 mongoose.connection.on("disconnected", () => {
-  console.warn("⚠️ MongoDB: Conexión perdida");
+  console.warn("MongoDB: Conexión perdida");
 });
 
-/**
- * Ensures clean shutdown of the database connection on app termination.
- */
+// Cierre de la conexion
 process.on("SIGINT", async () => {
   try {
     await mongoose.connection.close();
-    console.log("🔌 MongoDB: Conexión cerrada (SIGINT)");
+    console.log("MongoDB: Conexión cerrada (SIGINT / Ctrl + C)");
     process.exit(0);
   } catch (error) {
-    console.error("❌ MongoDB: Error al cerrar la conexión:", error.message);
+    console.error("MongoDB: Error al cerrar la conexión:", error.message);
     process.exit(1);
   }
 });
 
-/**
- * Initializes the database connection using the URI from centralized config.
- */
+// Iniciar la conexion a la base de datos
 export const connectDB = async () => {
   try {
-    // Note: Validation is now handled in config/env.js
     await mongoose.connect(config.MONGO_DB_URI);
   } catch (error) {
-    console.error("❌ MongoDB: Falló la conexión inicial:", error.message);
-    // Explicitly re-throw or exit depending on desired fallback strategy
+    console.error("MongoDB: Falló la conexión inicial:", error.message);
     process.exit(1);
   }
 };

@@ -6,19 +6,15 @@ import logger from "../utils/logger.js";
 
 /**
  * AI JUDGE SERVICE
- * 
+ *
  * Este servicio se encarga de:
  * 1. Recibir las respuestas de los jugadores.
- * 2. Verificar si ya tenemos esas palabras validadas en la base de datos (Caché).
+ * 2. Verificar si ya tenemos esas palabras validadas en la base de datos.
  * 3. Si hay palabras nuevas, preguntarle a la IA (Gemini).
  * 4. Calcular los puntos según las reglas del juego.
  */
 
-// --- Funciones Auxiliares de Apoyo ---
-
-/**
- * Normaliza una cadena para comparaciones (quita acentos, pasa a minúsculas).
- */
+// Normaliza una cadena para comparaciones (quita acentos, pasa a minúsculas).
 const normalize = (str) =>
   str
     ? str
@@ -28,16 +24,14 @@ const normalize = (str) =>
         .trim()
     : "";
 
-/**
- * Busca palabras en la base de datos para no preguntarle a la IA lo que ya sabemos.
- */
+// Busca palabras en la base de datos para no preguntarle a la IA lo que ya sabemos.
 const fetchCachedValidations = async (letter, uniqueWordsMap) => {
   if (uniqueWordsMap.size === 0) return new Map();
 
   const results = new Map();
   const queries = Array.from(uniqueWordsMap.values()).map((i) => ({
     category: i.c,
-    word: i.w.toLowerCase(),
+    word: normalize(i.w),
   }));
 
   const cachedDocs = await ValidatedResponse.find({
@@ -55,11 +49,10 @@ const fetchCachedValidations = async (letter, uniqueWordsMap) => {
   return results;
 };
 
-/**
- * Se comunica con Gemini para validar palabras que no estaban en la base de datos.
- */
+//Llamada a la API de Gemini para validar las palabras que no esten en base de datos
 const getAIValidations = async (letter, missingForAI) => {
-  if (Object.keys(missingForAI).length === 0 || !config.GEMINI_API_KEY) return {};
+  if (Object.keys(missingForAI).length === 0 || !config.GEMINI_API_KEY)
+    return {};
 
   const ai = new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
 
@@ -73,11 +66,14 @@ Expert & Witty Judge for the Spanish game "STOP".
 - Flexible Categories (English/Original Names allowed): ${CATEGORIES_FLEXIBLE.join(", ")}
 
 # VALIDATION RULES
-1. **Letter Check**: Word must start with '${letter}'. Ignore accents.
+1. **Letter Check**: Word must start with '${letter}'. This is a STRICT orthographic requirement. Ignore accents (e.g., 'Á' counts as 'A').
 2. **Category Logic**:
    - Strict: Must be valid Spanish.
    - Flexible: Accept original language/names (Brands, Movies).
-3. **Scoring (v)**: 1.0 = Correct, 0.5 = Typo/Partial, 0.0 = Wrong/Empty.
+3. **Special Letters**: Words starting with 'CH' belong to 'C', and 'LL' to 'L'.
+4. **No Phonetic Cheating**: Strictly REJECT words where the first letter was changed to force a match (e.g., if letter is 'K', 'KASA' is 0.0 because 'Casa' starts with 'C').
+5. **Accents & Orthography**: Do NOT penalize for missing or extra accents in the rest of the word.
+6. **Scoring (v)**: 1.0 = Correct, 0.5 = Minor typo (but NOT in the first letter), 0.0 = Wrong/Cheating/Empty.
 
 # INPUT DATA
 ${JSON.stringify(missingForAI)}
@@ -87,7 +83,6 @@ Return strictly JSON: { "categoryName": [{ "w": "word", "v": number, "m": "short
 `;
 
   try {
-    // pattern compatible con @google/genai
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -100,27 +95,25 @@ Return strictly JSON: { "categoryName": [{ "w": "word", "v": number, "m": "short
     const cleanJson = text.replace(/```json|```/g, "").trim();
     return JSON.parse(cleanJson);
   } catch (error) {
-    logger.error("❌ AI Error:", error.message);
+    logger.error("AI Error:", error.message);
     return {};
   }
 };
 
-/**
- * Guarda las nuevas validaciones de la IA en la DB para usarlas en el futuro.
- */
+//Guarda las nuevas validaciones de la IA en la DB para usarlas en el futuro.
 const cacheNewValidations = (letter, aiData) => {
   const newDocs = [];
   for (const cat in aiData) {
     if (Array.isArray(aiData[cat])) {
-      aiData[cat].forEach(res => {
+      aiData[cat].forEach((res) => {
         if (res.w) {
           newDocs.push({
             category: cat,
             letter: letter,
-            word: res.w.toLowerCase(),
+            word: normalize(res.w),
             isValid: res.v > 0,
             score: res.v,
-            reason: res.m
+            reason: res.m,
           });
         }
       });
@@ -128,46 +121,50 @@ const cacheNewValidations = (letter, aiData) => {
   }
 
   if (newDocs.length > 0) {
-    ValidatedResponse.insertMany(newDocs, { ordered: false })
-      .catch(err => logger.info("💡 Nota: Algunas palabras ya estaban en caché."));
+    ValidatedResponse.insertMany(newDocs, { ordered: false }).catch(() =>
+      logger.info("Nota: Algunas palabras ya estaban en caché."),
+    );
   }
 };
 
-// --- Función Principal ---
-
+// Función Principal
 export const processRoundResults = async (io, roomId, room) => {
   try {
     room.isCalculating = true;
     io.to(roomId).emit("calculating_results");
 
     // Destructuración segura con valores por defecto
-    const { 
-      currentLetter = "", 
-      currentCategories = [], 
-      players = [], 
-      roundData = [], 
-      config: gameConfig = { currentRound: 1, totalRounds: 5 }, 
-      scores = {} 
+    const {
+      currentLetter = "",
+      currentCategories = [],
+      players = [],
+      roundData = [],
+      config: gameConfig = { currentRound: 1, totalRounds: 5 },
+      scores = {},
     } = room;
 
     // 1. Organizar respuestas
-    const playerResponses = players.map(p => ({
+    const playerResponses = players.map((p) => ({
       id: p.id,
       name: p.username || p.firstName || "Jugador",
-      answers: roundData.find(r => r.playerId === p.id)?.answers || {},
+      answers: roundData.find((r) => r.playerId === p.id)?.answers || {},
     }));
 
     // 2. Identificar palabras únicas para validar
     const uniqueWordsMap = new Map();
-    currentCategories.forEach(cat => {
-      playerResponses.forEach(p => {
+    currentCategories.forEach((cat) => {
+      playerResponses.forEach((p) => {
         const word = (p.answers[cat] || "").trim();
-        if (word) uniqueWordsMap.set(`${cat}|${word.toLowerCase()}`, { w: word, c: cat });
+        if (word)
+          uniqueWordsMap.set(`${cat}|${normalize(word)}`, { w: word, c: cat });
       });
     });
 
     // 3. Buscar en Caché (DB)
-    const validationResults = await fetchCachedValidations(currentLetter, uniqueWordsMap);
+    const validationResults = await fetchCachedValidations(
+      currentLetter,
+      uniqueWordsMap,
+    );
 
     // 4. Procesar faltantes con IA
     const missingForAI = {};
@@ -180,14 +177,17 @@ export const processRoundResults = async (io, roomId, room) => {
 
     if (Object.keys(missingForAI).length > 0) {
       const aiResponse = await getAIValidations(currentLetter, missingForAI);
-      
+
       // Actualizar mapa de validaciones con lo que dijo la IA
       if (aiResponse) {
         for (const cat in aiResponse) {
           if (Array.isArray(aiResponse[cat])) {
-            aiResponse[cat].forEach(res => {
+            aiResponse[cat].forEach((res) => {
               if (res && res.w) {
-                validationResults.set(`${cat}|${res.w.toLowerCase()}`, { v: res.v, m: res.m });
+                validationResults.set(`${cat}|${normalize(res.w)}`, {
+                  v: res.v,
+                  m: res.m,
+                });
               }
             });
           }
@@ -198,31 +198,36 @@ export const processRoundResults = async (io, roomId, room) => {
     }
 
     // 5. Calcular Puntajes Finales
-    const formattedResults = currentCategories.map(cat => {
-      const categoryAnswers = playerResponses.map(p => {
+    const formattedResults = currentCategories.map((cat) => {
+      const categoryAnswers = playerResponses.map((p) => {
         const word = (p.answers[cat] || "").trim();
-        const val = validationResults.get(`${cat}|${word.toLowerCase()}`) || { v: 0, m: word ? "No validado" : "Vacío" };
-        
+        const val = validationResults.get(`${cat}|${normalize(word)}`) || {
+          v: 0,
+          m: word ? "No validado" : "Vacío",
+        };
+
         return {
           nombre: p.name,
           palabra: word,
           es_valida: val.v > 0,
           scoreModifier: val.v,
           mensaje: val.m,
-          puntos: 0
+          puntos: 0,
         };
       });
 
       // Lógica de repetidos: 100 si eres único, 50 si alguien más puso lo mismo
       const wordCounts = {};
-      categoryAnswers.filter(a => a.es_valida).forEach(a => {
-        const w = a.palabra.toLowerCase();
-        wordCounts[w] = (wordCounts[w] || 0) + 1;
-      });
+      categoryAnswers
+        .filter((a) => a.es_valida)
+        .forEach((a) => {
+          const w = normalize(a.palabra);
+          wordCounts[w] = (wordCounts[w] || 0) + 1;
+        });
 
-      categoryAnswers.forEach(a => {
+      categoryAnswers.forEach((a) => {
         if (a.es_valida) {
-          const isRepeated = wordCounts[a.palabra.toLowerCase()] > 1;
+          const isRepeated = wordCounts[normalize(a.palabra)] > 1;
           a.puntos = (isRepeated ? 50 : 100) * a.scoreModifier;
           scores[a.nombre] = (scores[a.nombre] || 0) + a.puntos;
         }
@@ -233,24 +238,23 @@ export const processRoundResults = async (io, roomId, room) => {
 
     // 6. Enviar resultados y actualizar estado del juego
     const isGameOver = gameConfig.currentRound >= gameConfig.totalRounds;
-    
+
     io.to(roomId).emit("round_results", {
       results: formattedResults,
       scores,
       isGameOver,
       round: gameConfig.currentRound,
       totalRounds: gameConfig.totalRounds,
-      stoppedBy: room.stoppedBy || null, // Include who pressed STOP
+      stoppedBy: room.stoppedBy || null,
     });
 
     if (isGameOver) room.isPlaying = false;
     else gameConfig.currentRound++;
 
     room.roundData = [];
-    room.stoppedBy = null; // Clear for next round
-
+    room.stoppedBy = null;
   } catch (error) {
-    logger.error("❌ Error en el Juez:", error);
+    logger.error("Error en el Juez:", error);
     io.to(roomId).emit("error_joining", "Hubo un error al procesar la ronda.");
   } finally {
     room.isCalculating = false;

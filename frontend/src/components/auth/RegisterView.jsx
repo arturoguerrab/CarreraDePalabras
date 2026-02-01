@@ -1,10 +1,5 @@
-import React from "react";
 import { Link } from "react-router-dom";
 
-/**
- * REGISTER VIEW
- * UI para el registro de nuevos usuarios con temática retro.
- */
 const RegisterView = ({
   email,
   setEmail,
@@ -24,7 +19,14 @@ const RegisterView = ({
   return (
     <div className="min-h-screen bg-[#6366f1] flex items-center justify-center px-4 py-12 font-['Press_Start_2P'] relative overflow-hidden">
       {/* Fondo Cuadriculado */}
-      <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(#000 2px, transparent 2px), linear-gradient(90deg, #000 2px, transparent 2px)', backgroundSize: '40px 40px' }}></div>
+      <div
+        className="absolute inset-0 opacity-10"
+        style={{
+          backgroundImage:
+            "linear-gradient(#000 2px, transparent 2px), linear-gradient(90deg, #000 2px, transparent 2px)",
+          backgroundSize: "40px 40px",
+        }}
+      ></div>
 
       {/* Decoración */}
       <div className="absolute top-20 left-10 w-16 h-16 bg-[#f472b6] border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] transform rotate-12"></div>
@@ -32,20 +34,21 @@ const RegisterView = ({
 
       <div className="w-full max-w-md relative z-10">
         <div className="bg-white border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] rounded-3xl p-8 relative text-center">
-          
-          <h1 className="text-2xl text-black mb-8 uppercase drop-shadow-sm">REGISTRO</h1>
+          <h1 className="text-2xl text-black mb-8 uppercase drop-shadow-sm">
+            REGISTRO
+          </h1>
           <p className="text-xs text-gray-500 mb-6 uppercase">Nuevo Jugador</p>
 
           {/* Alertas */}
           {error && (
             <div className="mb-4 p-2 bg-red-100 border-4 border-black text-red-600 text-xs uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)]">
-              ⚠️ {error}
+              {error}
             </div>
           )}
 
           {exito && (
             <div className="mb-4 p-2 bg-green-100 border-4 border-black text-green-600 text-xs uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)]">
-              ⭐ {exito}
+              {exito}
             </div>
           )}
 
@@ -107,12 +110,12 @@ const RegisterView = ({
           </form>
 
           <footer className="mt-8 text-center text-[10px] text-gray-500">
-            ¿Ya tienes tu carnet?{" "}
+            ¿Ya tienes tu cuenta?{" "}
             <Link
               to="/login"
               className="text-blue-600 hover:text-blue-800 underline decoration-wavy decoration-2"
             >
-              Entrar
+              Ingresa
             </Link>
           </footer>
         </div>

@@ -1,11 +1,10 @@
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import RegisterView from "./RegisterView";
 
-/**
- * REGISTER CONTAINER
- * Gestiona el estado y la creación de nuevas cuentas de usuario.
- */
+//Gestion del estado y la creación de nuevas cuentas de usuario.
+
 const RegisterContainer = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -15,11 +14,30 @@ const RegisterContainer = () => {
   const [error, setError] = useState("");
   const [exito, setExito] = useState("");
   const [loading, setLoading] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(null);
 
+  const navigate = useNavigate();
   const { register } = useAuth();
 
+  // Efecto para manejar la cuenta regresiva y la redirección automática
+  useEffect(() => {
+    if (secondsLeft === null) return;
+
+    if (secondsLeft > 0) {
+      setExito(
+        <>
+          ¡Cuenta creada con éxito! Redirigiendo en {secondsLeft}...{" "}
+          <Link to="/login" className="underline decoration-wavy ml-1 font-bold">Ir ahora</Link>
+        </>
+      );
+      const timer = setTimeout(() => setSecondsLeft((prev) => prev - 1), 1000);
+      return () => clearTimeout(timer);
+    } else {
+      navigate("/login");
+    }
+  }, [secondsLeft, navigate]);
+
   /**
-   * Procesa el registro de un nuevo usuario.
    * @param {Event} e - Evento de envío.
    */
   const handleSubmit = async (e) => {
@@ -28,28 +46,35 @@ const RegisterContainer = () => {
     setExito("");
     setLoading(true);
 
+    const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
+    const cleanFirstName = firstName.trim();
+    const cleanLastName = lastName.trim();
+    const cleanUsername = username.trim();
+
     // Validaciones básicas
-    if (!email.trim() || !password.trim() || !firstName.trim() || !lastName.trim()) {
+    if (!cleanEmail || !cleanPassword || !cleanFirstName || !cleanLastName) {
       setError("Por favor completa los campos obligatorios (*)");
       setLoading(false);
       return;
     }
-    if (password.length < 6) {
+    if (cleanPassword.length < 6) {
       setError("La contraseña debe tener al menos 6 caracteres");
       setLoading(false);
       return;
     }
 
     try {
-      await register({ email, password, username, firstName, lastName });
-      setExito("¡Cuenta creada con éxito! Ya puedes iniciar sesión.");
-      
-      // Limpiar campos tras éxito
-      setEmail("");
-      setPassword("");
-      setUsername("");
-      setFirstName("");
-      setLastName("");
+      await register({ 
+        email: cleanEmail, 
+        password: cleanPassword, 
+        username: cleanUsername, 
+        firstName: cleanFirstName, 
+        lastName: cleanLastName 
+      });
+
+      setSecondsLeft(5); // Iniciamos la cuenta regresiva de 5 segundos
+
     } catch (err) {
       if (err.response?.data?.message) {
         setError(err.response.data.message);
