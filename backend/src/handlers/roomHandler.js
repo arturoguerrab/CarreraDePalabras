@@ -1,74 +1,181 @@
 import * as roomService from "../services/roomService.js";
+import { requireAuth } from "../utils/socketUtils.js";
 
-// Emite la lista de jugadores a la sala - GameContext
+// funcion para emitir la lista de jugadores actualizada
 export const emitPlayerList = (io, roomId, players) => {
-  io.to(roomId).emit(
-    "update_player_list",
-    players.map((p) => ({
-      email: p.email,
-      displayName: p.username || p.firstName || p.email,
-      ready: p.ready,
-    })),
-  );
+	io.to(roomId).emit(
+		"update_player_list",
+		players.map((p) => ({
+			email: p.email,
+			displayName: p.username || p.firstName || p.email,
+			ready: p.ready,
+			connected: p.connected,
+		})),
+	);
 };
 
-// Creacion de una sala
-export const handleCreateRoom = (io, socket) => {
-  const user = socket.request.user;
+// Manejar la creacion de la sala - Emit principal 'room_created'
+export const handleCreateRoom = async (io, socket) => {
+	const user = requireAuth(socket);
+	if (!user) return;
 
-  if (!user) {
-    socket.emit("error_joining", "Usuario no autenticado"); //Emite que el user no esta auth - GameContext
-    return;
-  }
+	try {
+		const roomId = await roomService.createRoom(user, socket.id);
+		socket.join(roomId);
 
-  const roomId = roomService.createRoom(user, socket.id);
-  socket.join(roomId);
-  const room = roomService.getRoom(roomId);
+		const room = await roomService.getRoom(roomId);
 
-  emitPlayerList(io, roomId, room.players);
-  socket.emit("room_created", roomId); //Emite room creada - Game Context
+		emitPlayerList(io, roomId, room.players);
+		socket.emit("room_created", roomId);
+	} catch (error) {
+		socket.emit("error_joining", "Error al crear la sala");
+	}
 };
 
-// Jugador se une a una sala
-export const handleJoinRoom = (io, socket, { room_id }) => {
-  const user = socket.request.user;
+// Manejar la creacion de la sala - Emit principal 'joined_room'
+export const handleJoinRoom = async (io, socket, { room_id }) => {
+	const user = requireAuth(socket);
+	if (!user) return;
 
-  if (!user) {
-    socket.emit("error_joining", "Usuario no autenticado"); //Emite que el user no esta auth - GameContext
-    return;
-  }
+	try {
+		const { room, isNewJoin, error } = await roomService.joinRoom(
+			room_id,
+			user,
+			socket.id,
+		);
+		if (error || !room) {
+			return socket.emit("error_joining", error || "No se pudo unir a la sala");
+		}
 
-  const result = roomService.joinRoom(room_id, user, socket.id);
-  if (result.error) {
-    return socket.emit("error_joining", result.error);
-  }
+		socket.join(room_id);
+		socket.emit("joined_room", room_id);
+		emitPlayerList(io, room_id, room.players);
 
-  socket.join(room_id);
-  socket.emit("joined_room", room_id); //Emite ingreso a la room - Game Context
-  emitPlayerList(io, room_id, result.room.players);
+		// RECUPERACIÓN DE ESTADO: Si el juego está en curso, enviamos el estado actual
+		if (room.isPlaying) {
+			let remainingTime = 60; // Default
+
+			if (room.timerStart) {
+				const elapsedSeconds = Math.floor(
+					(Date.now() - new Date(room.timerStart).getTime()) / 1000,
+				);
+				remainingTime = Math.max(0, 60 - elapsedSeconds);
+			}
+
+			if (room.isCalculating) {
+				socket.emit("calculating_results");
+			} else if (room.stoppedBy) {
+				socket.emit("force_submit", { stoppedBy: room.stoppedBy });
+			} else if (room.timerStart) {
+				socket.emit("game_started", {
+					letter: room.currentLetter,
+					categories: room.currentCategories,
+					roundDuration: remainingTime,
+					isRecovery: true,
+				});
+			} else {
+				if (room.lastRoundResults) {
+					socket.emit("round_results", {
+						results: room.lastRoundResults,
+						scores: room.scores,
+						isGameOver: false,
+						round: room.config.currentRound - 1,
+						totalRounds: room.config.totalRounds,
+						stoppedBy: null,
+						isRecovery: true,
+					});
+				}
+			}
+		} else if (room.lastRoundResults) {
+			const currentName = user.username || user.firstName;
+			const playerInRoom = room.players.find((p) => p.email === user.email);
+
+			const participated = room.lastRoundResults.some((catResult) =>
+				catResult.respuestas.some((r) => r.nombre === currentName),
+			);
+
+			const dismissed = playerInRoom?.dismissedResults;
+
+			if (
+				!isNewJoin &&
+				participated &&
+				!dismissed &&
+				room.config.currentRound >= room.config.totalRounds
+			) {
+				socket.emit("round_results", {
+					results: room.lastRoundResults,
+					scores: room.scores,
+					isGameOver: true,
+					round: room.config.totalRounds,
+					totalRounds: room.config.totalRounds,
+					stoppedBy: null,
+					isRecovery: true,
+				});
+			}
+		}
+	} catch (error) {
+		socket.emit("error_joining", "Error al unirse a la sala");
+	}
 };
 
-// Jugador abandonando la partida voluntariamente
-export const handleLeaveRoom = (
-  io,
-  socket,
-  { room_id },
-  checkRoundCompleteCallback,
+// Manejar cuando un usuario descarta los resultados (Click en "Volver a la sala")
+export const handleDismissResults = async (io, socket, { roomId }) => {
+	try {
+		const user = socket.request.user;
+		if (!user) return;
+
+		await roomService.updatePlayerByEmail(roomId, user.email, {
+			dismissedResults: true,
+		});
+	} catch (error) {
+		console.error("Error dismissing results", error);
+	}
+};
+
+// Manejar la salida de la sala si el jugador sale de manera voluntaria - No tiene un emit principal
+export const handleLeaveRoom = async (
+	io,
+	socket,
+	{ room_id },
+	checkRoundCompleteCallback,
 ) => {
-  const room = roomService.removePlayer(room_id, socket.id);
-  if (room) {
-    socket.leave(room_id);
-    emitPlayerList(io, room_id, room.players);
-    if (checkRoundCompleteCallback) checkRoundCompleteCallback(room_id);
-  }
+	try {
+		const user = socket.request.user;
+		if (!user) {
+			return;
+		}
+
+		const room = await roomService.removePlayerByEmail(room_id, user.email);
+
+		if (room) {
+			socket.leave(room_id);
+			emitPlayerList(io, room_id, room.players);
+			if (checkRoundCompleteCallback) await checkRoundCompleteCallback(room_id);
+		} else {
+			socket.leave(room_id);
+		}
+	} catch (err) {
+		console.error("Error leaving room", err);
+	}
 };
 
-// Jugador abandonando la partida involuntariamente
-export const handleDisconnect = (io, socket, checkRoundCompleteCallback) => {
-  const result = roomService.removePlayerBySocketId(socket.id);
-  if (result) {
-    const { roomId, room } = result;
-    emitPlayerList(io, roomId, room.players);
-    if (checkRoundCompleteCallback) checkRoundCompleteCallback(roomId);
-  }
+// Manejar la desconexion del jugador - No tiene un emit principal
+export const handleDisconnect = async (
+	io,
+	socket,
+	checkRoundCompleteCallback,
+) => {
+	try {
+		const result = await roomService.removePlayerBySocketId(socket.id);
+		if (result) {
+			const { roomId, room } = result;
+			if (room && room.players.length > 0) {
+				emitPlayerList(io, roomId, room.players);
+				if (checkRoundCompleteCallback)
+					await checkRoundCompleteCallback(roomId);
+			}
+		}
+	} catch (err) {
+		console.error("Error handling disconnect", err);
+	}
 };

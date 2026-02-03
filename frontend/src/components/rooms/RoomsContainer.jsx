@@ -1,46 +1,46 @@
 import { useState, useEffect } from "react";
-import { useGame } from "../../context/GameContext.jsx";
+import { useRoom } from "../../context/RoomContext.jsx";
 import RoomsView from "./RoomsView";
 
 /**
  * Gestiona la lógica para unirse o crear salas de juego.
  */
 const RoomsContainer = () => {
-  const { gameError, createRoom, joinRoom, clearError } = useGame();
-  const [roomToJoin, setRoomToJoin] = useState("");
+	const { roomError, createRoom, joinRoom, clearError } = useRoom();
+	const [roomToJoin, setRoomToJoin] = useState("");
 
-  // Limpiar errores solo al montar el componente
-  useEffect(() => {
-    clearError();
-  }, []);
+	// Limpiar errores solo al montar el componente
+	useEffect(() => {
+		clearError();
+	}, []);
 
-  /**
-   * @param {Event} e - Evento de envío del formulario.
-   */
-  const handleJoinRoom = (e) => {
-    e.preventDefault();
-    if (!roomToJoin.trim()) return;
-    joinRoom(roomToJoin.trim().toUpperCase());
-  };
+	/**
+	 * @param {Event} e - Evento de envío del formulario.
+	 */
+	const handleJoinRoom = (e) => {
+		e.preventDefault();
+		if (!roomToJoin.trim()) return;
+		joinRoom(roomToJoin.trim().toUpperCase());
+	};
 
-  const handleCreateRoom = () => {
-    clearError();
-    createRoom();
-  };
+	const handleCreateRoom = () => {
+		clearError();
+		createRoom();
+	};
 
-  return (
-    <RoomsView
-      roomToJoin={roomToJoin}
-      handleRoomToJoinChange={(e) => {
-        setRoomToJoin(e.target.value);
-        if (gameError) clearError();
-      }}
-      handleCreateRoom={handleCreateRoom}
-      handleJoinRoom={handleJoinRoom}
-      error={gameError}
-      clearError={clearError}
-    />
-  );
+	return (
+		<RoomsView
+			roomToJoin={roomToJoin}
+			handleRoomToJoinChange={(e) => {
+				setRoomToJoin(e.target.value);
+				if (roomError) clearError();
+			}}
+			handleCreateRoom={handleCreateRoom}
+			handleJoinRoom={handleJoinRoom}
+			error={roomError}
+			clearError={clearError}
+		/>
+	);
 };
 
 export default RoomsContainer;

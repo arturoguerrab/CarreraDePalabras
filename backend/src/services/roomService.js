@@ -1,182 +1,322 @@
 import { customAlphabet } from "nanoid";
-import { ALL_CATEGORIES } from "../config/gameConstants.js";
+import Room from "../models/roomModel.js";
 import logger from "../utils/logger.js";
 
-// Generador del ID de la sala
+const deletionTimers = new Map();
+
+// Programar borrado de sala si se queda vacía - 30 segundos de gracia
+const scheduleRoomDeletion = (roomId) => {
+	if (deletionTimers.has(roomId)) return;
+
+	logger.info(
+		`Sala ${roomId} sin jugadores. Se borrará en 30s si nadie se une.`,
+	);
+	const timer = setTimeout(async () => {
+		try {
+			const room = await Room.findOne({ roomId });
+			if (room && room.players.length === 0) {
+				await Room.deleteOne({ roomId });
+				logger.info(
+					`Sala ${roomId} eliminada definitivamente por inactividad.`,
+				);
+			}
+		} catch (error) {
+			logger.error(`Error borrando sala ${roomId}:`, error);
+		} finally {
+			deletionTimers.delete(roomId);
+		}
+	}, 30000); // 30 segundos de gracia
+
+	deletionTimers.set(roomId, timer);
+};
+
+// Cancelar borrado de sala si se une un jugador
+const cancelRoomDeletion = (roomId) => {
+	if (deletionTimers.has(roomId)) {
+		clearTimeout(deletionTimers.get(roomId));
+		deletionTimers.delete(roomId);
+		logger.info(`Eliminación de sala ${roomId} cancelada (jugador unido).`);
+	}
+};
+
+// Generar ID de sala - nanoid
 const generateRoomId = customAlphabet("0123456789", 4);
 
-// Memoria de rooms activas
-const rooms = {};
-
-const ALPHABET_ARRAY = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-
-export const getRoom = (roomId) => {
-  const room = rooms[roomId];
-  if (room) {
-    room.lastActivity = Date.now();
-  }
-  return room;
+// Crear sala
+export const createRoom = async (user, socketId) => {
+	try {
+		const roomId = generateRoomId();
+		const newRoom = await Room.create({
+			roomId,
+			players: [
+				{
+					id: socketId,
+					email: user.email,
+					username: user.username,
+					firstName: user.firstName,
+					ready: false,
+				},
+			],
+			lastActivity: new Date(),
+		});
+		return newRoom.roomId;
+	} catch (error) {
+		logger.error("Error creating room:", error);
+		throw error;
+	}
 };
 
-// Creacion de la sala y set de estados iniciales del creador
-export const createRoom = (user, socketId) => {
-  const roomId = generateRoomId();
-  rooms[roomId] = {
-    players: [
-      {
-        id: socketId,
-        email: user.email,
-        username: user.username,
-        firstName: user.firstName,
-        ready: false,
-      },
-    ],
-    isPlaying: false,
-    isCalculating: false,
-    scores: {},
-    roundData: [],
-    usedLetters: [],
-    currentLetter: "",
-    currentCategories: [],
-    config: { totalRounds: 5, currentRound: 1 },
-    lastActivity: Date.now(),
-  };
-  return roomId;
+// Obtener sala - usado en multiples funciones
+export const getRoom = async (roomId) => {
+	try {
+		return await Room.findOne({ roomId });
+	} catch (error) {
+		logger.error(`Error fetching room ${roomId}:`, error);
+		return null;
+	}
 };
 
-// Revisa cada 30 minutos si hay salas abandonadas (sin actividad por 1 hora)
-setInterval(
-  () => {
-    const ONE_HOUR = 60 * 60 * 1000;
-    const now = Date.now();
-    let deletedCount = 0;
+// Unirse a sala
+export const joinRoom = async (roomId, user, socketId) => {
+	try {
+		cancelRoomDeletion(roomId);
 
-    for (const roomId in rooms) {
-      const room = rooms[roomId];
-      if (now - room.lastActivity > ONE_HOUR) {
-        delete rooms[roomId];
-        deletedCount++;
-      }
-    }
+		// Verificar existencia básica y estado
+		const roomCheck = await Room.findOne({ roomId }).select(
+			"isPlaying lastRoundResults config",
+		);
+		if (!roomCheck) {
+			return { error: "La sala no existe." };
+		}
 
-    if (deletedCount > 0) {
-      logger.info(
-        `Garbage Collector: Se eliminaron ${deletedCount} salas inactivas.`,
-      );
-    }
-  },
-  30 * 60 * 1000,
-);
+		if (roomCheck.isPlaying) {
+			const exists = await Room.countDocuments({
+				roomId,
+				"players.email": user.email,
+			});
+			if (!exists) return { error: "La partida ya ha comenzado." };
+		}
 
-export const joinRoom = (roomId, user, socketId) => {
-  const room = rooms[roomId];
-  if (!room) return { error: "La sala no existe." };
+		let room = await Room.findOneAndUpdate(
+			{ roomId, "players.email": user.email },
+			{
+				$set: {
+					"players.$.id": socketId,
+					"players.$.username": user.username, // Actualizar datos por si cambiaron
+					"players.$.firstName": user.firstName,
+					"players.$.connected": true, // Marcar como conectado
+					lastActivity: new Date(),
+				},
+			},
 
-  if (room.deleteTimeout) {
-    clearTimeout(room.deleteTimeout);
-    delete room.deleteTimeout;
-  }
+			{ new: true },
+		);
 
-  const existingPlayer = room.players.find((p) => p.email === user.email);
+		if (room) {
+			logger.info(
+				`Jugador ${user.email} reconectado/actualizado en sala ${roomId}`,
+			);
+			return { room, isNewJoin: false };
+		}
 
-  if (room.isPlaying && !existingPlayer) {
-    return { error: "La partida ya ha comenzado. No puedes entrar." };
-  }
+		const isGameOver =
+			!roomCheck.isPlaying &&
+			roomCheck.lastRoundResults &&
+			roomCheck.config.currentRound >= roomCheck.config.totalRounds;
 
-  if (existingPlayer) {
-    existingPlayer.id = socketId;
-  } else {
-    room.players.push({
-      id: socketId,
-      email: user.email,
-      username: user.username,
-      firstName: user.firstName,
-      ready: false,
-    });
-  }
+		room = await Room.findOneAndUpdate(
+			{ roomId, "players.email": { $ne: user.email } },
+			{
+				$push: {
+					players: {
+						id: socketId,
+						email: user.email,
+						username: user.username,
+						firstName: user.firstName,
+						ready: false,
+						dismissedResults: isGameOver ? true : false, // Si es Game Over, ya "vio" (saltó) los resultados
+					},
+				},
+				$set: { lastActivity: new Date() },
+			},
+			{ new: true },
+		);
 
-  return { room };
+		if (room) {
+			logger.info(`Jugador ${user.email} unido a sala ${roomId}`);
+			return { room, isNewJoin: true };
+		}
+
+		// Verificamos si la sala existe y tiene al jugador
+		room = await Room.findOne({ roomId });
+		if (!room)
+			return { error: "Error al unirse a la sala (posiblemente eliminada)." };
+
+		return { room, isNewJoin: false };
+	} catch (error) {
+		logger.error("Error joining room:", error);
+		return { error: "Error al unirse a la sala." };
+	}
 };
 
-// Preparacion de las letras y categorias de partida
-export const prepareNextRound = (roomId) => {
-  const room = rooms[roomId];
-  if (!room) return null;
+// Eliminar jugador y programar borrado si se queda vacía
+export const removePlayer = async (roomId, socketId) => {
+	try {
+		const room = await Room.findOneAndUpdate(
+			{ roomId },
+			{ $pull: { players: { id: socketId } } },
+			{ new: true },
+		);
 
-  // Filtrar letras que no han sido usadas
-  const availableLetters = ALPHABET_ARRAY.filter(
-    (l) => !room.usedLetters.includes(l),
-  );
-  const pool = availableLetters.length > 0 ? availableLetters : ALPHABET_ARRAY;
+		if (room && room.players.length === 0) {
+			scheduleRoomDeletion(roomId);
+			return null;
+		}
 
-  const randomLetter = pool[Math.floor(Math.random() * pool.length)];
-  room.usedLetters.push(randomLetter);
-
-  const shuffledCategories = [...ALL_CATEGORIES].sort(
-    () => 0.5 - Math.random(),
-  );
-
-  room.currentLetter = randomLetter;
-  room.currentCategories = shuffledCategories.slice(0, 8);
-  room.roundData = [];
-
-  return {
-    letter: room.currentLetter,
-    categories: room.currentCategories,
-  };
+		return room;
+	} catch (error) {
+		logger.error("Error removing player:", error);
+		return null;
+	}
 };
 
-export const removePlayer = (roomId, socketId) => {
-  const room = rooms[roomId];
-  if (!room) return null;
+// Eliminar jugador por email
+export const removePlayerByEmail = async (roomId, email) => {
+	try {
+		const room = await Room.findOneAndUpdate(
+			{ roomId },
+			{ $pull: { players: { email } } },
+			{ new: true },
+		);
 
-  const index = room.players.findIndex((p) => p.id === socketId);
-  if (index !== -1) {
-    room.lastActivity = Date.now();
-    room.players.splice(index, 1);
-    checkAndScheduleDeletion(roomId);
-  }
-  return room;
+		if (room && room.players.length === 0) {
+			scheduleRoomDeletion(roomId);
+			return null;
+		}
+
+		return room;
+	} catch (error) {
+		logger.error("Error removing player by email:", error);
+		return null;
+	}
 };
 
-export const removePlayerBySocketId = (socketId) => {
-  for (const roomId in rooms) {
-    const room = rooms[roomId];
-    const index = room.players.findIndex((p) => p.id === socketId);
+// Eliminar jugador por socketId
+export const removePlayerBySocketId = async (socketId) => {
+	try {
+		// Encontrar la sala primero para poder devolverla (necesario para el frontend)
+		let room = await Room.findOne({ "players.id": socketId });
+		if (!room) return null;
 
-    if (index !== -1) {
-      const player = room.players[index];
-      room.players.splice(index, 1);
-      checkAndScheduleDeletion(roomId);
-      return { roomId, room, player };
-    }
-  }
-  return null;
+		const player = room.players.find((p) => p.id === socketId);
+		if (!player) return null;
+
+		// Si el juego está en curso O es Game Over (para mantener resultados/estado), solo marcamos desconectado
+		const isGameOverState =
+			!room.isPlaying &&
+			room.lastRoundResults &&
+			room.config.currentRound >= room.config.totalRounds;
+
+		if (room.isPlaying || isGameOverState) {
+			room = await Room.findOneAndUpdate(
+				{ roomId: room.roomId, "players.id": socketId },
+				{ $set: { "players.$.connected": false } },
+				{ new: true },
+			);
+			logger.info(
+				`Jugador ${player.email} desconectado (marcado como inactivo) de sala ${room.roomId}. (Game Over: ${isGameOverState})`,
+			);
+		} else {
+			// Si NO están jugando y NO es Game Over (Lobby puro), eliminamos
+			room = await Room.findOneAndUpdate(
+				{ roomId: room.roomId },
+				{ $pull: { players: { id: socketId } } },
+				{ new: true },
+			);
+
+			if (room && room.players.length === 0) {
+				scheduleRoomDeletion(room.roomId);
+			}
+		}
+
+		return {
+			roomId: room.roomId,
+			// Si la sala se borró (0 jugadores), devolvemos null en 'room' o manejamos según frontend
+			room: room && room.players.length > 0 ? room : null,
+			player,
+		};
+	} catch (error) {
+		logger.error("Error removing player by socket:", error);
+		return null;
+	}
 };
 
-// Limpiar salas vacias
-const checkAndScheduleDeletion = (roomId) => {
-  const room = rooms[roomId];
-  if (room && room.players.length === 0) {
-    room.deleteTimeout = setTimeout(() => delete rooms[roomId], 10000);
-  }
+// Alternar estado de listo
+export const togglePlayerReady = async (roomId, socketId) => {
+	try {
+		const room = await Room.findOne({ roomId });
+		if (!room) return null;
+
+		const player = room.players.find((p) => p.id === socketId);
+		if (player) {
+			player.ready = !player.ready;
+			await room.save();
+		}
+		return room;
+	} catch (error) {
+		logger.error("Error toggling ready:", error);
+		return null;
+	}
 };
 
-// Manejo del estado listo de un jugador para empezar la partida
-export const togglePlayerReady = (roomId, socketId) => {
-  const room = rooms[roomId];
-  if (!room) return null;
-
-  const player = room.players.find((p) => p.id === socketId);
-  if (player) {
-    player.ready = !player.ready;
-  }
-  return room;
+// Resetear estado de listo
+export const resetReadiness = async (roomId) => {
+	try {
+		await Room.updateOne({ roomId }, { $set: { "players.$[].ready": false } });
+	} catch (error) {
+		logger.error("Error resetting readiness:", error);
+	}
 };
 
-// Reset de todos los estados de los jugadores
-export const resetReadiness = (roomId) => {
-  const room = rooms[roomId];
-  if (!room) return;
-  room.players.forEach((p) => (p.ready = false));
+// Función para gestión del Timer persistente
+export const setRoomTimer = async (roomId, startTime) => {
+	try {
+		await Room.updateOne({ roomId }, { $set: { timerStart: startTime } });
+	} catch (error) {
+		logger.error("Error setting room timer:", error);
+	}
+};
+
+// Actualizar jugador en sala por socketId
+export const updatePlayerInRoom = async (roomId, socketId, updates) => {
+	try {
+		const updateFields = {};
+		for (const [key, value] of Object.entries(updates)) {
+			updateFields[`players.$.${key}`] = value;
+		}
+
+		await Room.updateOne(
+			{ roomId, "players.id": socketId },
+			{ $set: updateFields },
+		);
+	} catch (error) {
+		logger.error("Error updating player in room:", error);
+	}
+};
+
+// Actualizar jugador en sala por email
+export const updatePlayerByEmail = async (roomId, email, updates) => {
+	try {
+		const updateFields = {};
+		for (const [key, value] of Object.entries(updates)) {
+			updateFields[`players.$.${key}`] = value;
+		}
+
+		const result = await Room.updateOne(
+			{ roomId, "players.email": email },
+			{ $set: updateFields },
+		);
+	} catch (error) {
+		logger.error("Error updating player in room by email:", error);
+	}
 };

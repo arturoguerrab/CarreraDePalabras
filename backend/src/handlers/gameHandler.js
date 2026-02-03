@@ -1,147 +1,219 @@
 import { processRoundResults } from "../services/aiJudgeService.js";
 import * as roomService from "../services/roomService.js";
+import * as gameService from "../services/gameService.js";
 import logger from "../utils/logger.js";
 import { emitPlayerList } from "./roomHandler.js";
+import { fetchRoomOrError } from "../utils/socketUtils.js";
 
-//Revision si todos los jugadores enviaron sus respuestas
+// Verificar si la ronda está completa
 export const checkRoundComplete = async (io, roomId) => {
-  const room = roomService.getRoom(roomId);
-  if (!room || room.isCalculating) return;
+	try {
+		const room = await roomService.getRoom(roomId);
+		if (!room || room.isCalculating) return;
 
-  if (
-    room.isPlaying &&
-    room.currentCategories?.length > 0 &&
-    room.roundData.length >= room.players.length
-  ) {
-    await processRoundResults(io, roomId, room); //Llamado a la IA
-  }
+		if (
+			room.isPlaying &&
+			room.currentCategories?.length > 0 &&
+			room.roundData.length >= room.players.length
+		) {
+			room.isCalculating = true;
+			await room.save();
+
+			await processRoundResults(io, roomId, room);
+		}
+	} catch (err) {
+		logger.error("Error in checkRoundComplete", err);
+	}
 };
 
-//Countdown de 60 segundos por ronda y count de 3s antes de empezar ronda
-const startRoundWithCountdown = (io, roomId) => {
-  const room = roomService.getRoom(roomId);
-  if (!room) return;
+// Logica para iniciar la ronda - emit principal 'game_started' y 'start_countdown'
+const startRoundWithCountdown = async (io, roomId) => {
+	await roomService.resetReadiness(roomId);
+	io.to(roomId).emit("start_countdown", 3);
 
-  roomService.resetReadiness(roomId);
-  io.to(roomId).emit("start_countdown", 3); //Game context
+	setTimeout(async () => {
+		try {
+			const roomData = await gameService.prepareNextRound(roomId);
+			if (!roomData) return;
 
-  setTimeout(async () => {
-    const roomData = roomService.prepareNextRound(roomId);
-    if (!roomData) return;
+			const room = await roomService.getRoom(roomId);
+			const TIME_LIMIT = 60;
 
-    // Limpieza de posible tiempo restante
-    if (room.timer) clearTimeout(room.timer);
+			await startTimer(io, roomId, TIME_LIMIT);
 
-    // Inicio de los 60s de partida
-    const TIME_LIMIT = 60;
-    room.timer = setTimeout(() => {
-      logger.info(`Time's up for room ${roomId}`);
-
-      room.stoppedBy = "EL JUEZ";
-      io.to(roomId).emit("force_submit", { stoppedBy: room.stoppedBy });
-
-      setTimeout(() => checkRoundComplete(io, roomId), 2000);
-    }, TIME_LIMIT * 1000);
-
-    emitPlayerList(io, roomId, room.players);
-    io.to(roomId).emit("game_started", {
-      letter: roomData.letter,
-      categories: roomData.categories,
-      roundDuration: TIME_LIMIT,
-    });
-  }, 3000);
+			emitPlayerList(io, roomId, room.players);
+			io.to(roomId).emit("game_started", {
+				letter: roomData.letter,
+				categories: roomData.categories,
+				roundDuration: TIME_LIMIT,
+			});
+		} catch (err) {
+			logger.error("Error starting round", err);
+		}
+	}, 3000);
 };
 
-export const handleToggleReady = (io, socket, roomId) => {
-  const room = roomService.getRoom(roomId);
-  if (!room) return;
+const activeTimers = new Map();
 
-  logger.info(`Player ${socket.id} toggled ready in room ${roomId}`);
-  roomService.togglePlayerReady(roomId, socket.id);
-  emitPlayerList(io, roomId, room.players);
+// Logica para iniciar el timer - emit principal 'force_submit'
+const startTimer = async (io, roomId, durationSeconds) => {
+	if (activeTimers.has(roomId)) {
+		clearTimeout(activeTimers.get(roomId));
+	}
 
-  // Revisar si todos estan listos
-  const allReady =
-    room.players.length > 0 && room.players.every((p) => p.ready);
+	// Guardar tiempo de inicio en DB para recuperación
+	try {
+		await roomService.setRoomTimer(roomId, new Date());
+	} catch (err) {
+		logger.error(`Error saving timer for room ${roomId}`, err);
+	}
 
-  if (allReady) {
-    logger.info(`All players ready in room ${roomId}. Starting...`);
-    if (!room.isPlaying) {
-      room.isPlaying = true;
-      room.scores = {};
-      room.usedLetters = [];
-      room.config.currentRound = 1;
-    }
-    startRoundWithCountdown(io, roomId);
-  }
+	const timer = setTimeout(async () => {
+		logger.info(`Time's up for room ${roomId}`);
+
+		const room = await roomService.getRoom(roomId);
+		if (room) {
+			room.stoppedBy = "EL JUEZ";
+			room.timerStart = null; // Limpiar timer
+			await room.save();
+
+			io.to(roomId).emit("force_submit", { stoppedBy: "EL JUEZ" });
+
+			setTimeout(() => checkRoundComplete(io, roomId), 2000);
+		}
+		activeTimers.delete(roomId);
+	}, durationSeconds * 1000);
+
+	activeTimers.set(roomId, timer);
 };
 
-export const handleStartGame = (socket, data) => {
-  try {
-    logger.info(`Start Game requested via socket ${socket.id}`, data);
-    const roomId = typeof data === "object" ? data.room_id : data;
-    const room = roomService.getRoom(roomId);
-
-    if (room) {
-      if (typeof data === "object" && data.rounds) {
-        const rounds = Number(data.rounds);
-        if (!isNaN(rounds)) {
-          room.config.totalRounds = rounds;
-          logger.info(`Room ${roomId} rounds set to ${rounds}`);
-        }
-      }
-
-      logger.info(`Room ${roomId} configured. Waiting for toggle_ready...`);
-    } else {
-      logger.error(`Room ${roomId} not found for start_game`);
-    }
-  } catch (err) {
-    logger.error("Error in start_game handler:", err);
-  }
+// Logica para limpiar el timer
+const clearRoomTimer = async (roomId) => {
+	if (activeTimers.has(roomId)) {
+		clearTimeout(activeTimers.get(roomId));
+		activeTimers.delete(roomId);
+	}
+	try {
+		await roomService.setRoomTimer(roomId, null);
+	} catch (err) {
+		logger.warn(`Failed to clear timer for room ${roomId}`, err);
+	}
 };
 
-export const handleResetGame = (io, roomId) => {
-  const room = roomService.getRoom(roomId);
-  if (room) {
-    if (room.timer) clearTimeout(room.timer);
-    room.isPlaying = false;
-    room.scores = {};
-    room.roundData = [];
-    room.usedLetters = [];
-    room.config.currentRound = 1;
-    roomService.resetReadiness(roomId);
-    io.to(roomId).emit("game_reset");
-    emitPlayerList(io, roomId, room.players);
-  }
+// Logica para manejar el toggle de ready
+export const handleToggleReady = async (io, socket, roomId) => {
+	try {
+		const room = await roomService.togglePlayerReady(roomId, socket.id);
+		if (!room) return;
+
+		logger.info(
+			`Player ${socket.id} toggled ready in room ${roomId}. Players: ${JSON.stringify(
+				room.players.map((p) => ({ id: p.id, email: p.email, ready: p.ready })),
+			)}`,
+		);
+		emitPlayerList(io, roomId, room.players);
+
+		const allReady =
+			room.players.length > 0 && room.players.every((p) => p.ready);
+
+		if (allReady) {
+			logger.info(`All players ready in room ${roomId}. Starting...`);
+			if (!room.isPlaying) {
+				// Init Game State
+				room.isPlaying = true;
+				room.scores = {};
+				room.usedLetters = [];
+				room.config.currentRound = 1;
+				await room.save();
+			}
+			await startRoundWithCountdown(io, roomId);
+		} else {
+			logger.info(
+				`Room ${roomId} waiting for players. Ready: ${
+					room.players.filter((p) => p.ready).length
+				}/${room.players.length}`,
+			);
+		}
+	} catch (err) {
+		logger.error("Error toggle ready", err);
+	}
 };
 
-export const handleStopRound = (io, socket, { roomId, answers }) => {
-  const room = roomService.getRoom(roomId);
-  if (!room) return socket.emit("error_joining", "La sala ha expirado.");
+// Logica para manejar el start game
+export const handleStartGame = async (socket, data) => {
+	try {
+		logger.info(`Start Game requested via socket ${socket.id}`, data);
+		const roomId = typeof data === "object" ? data.room_id : data;
+		const room = await fetchRoomOrError(socket, roomId);
+		if (!room) return;
 
-  if (room.roundData.find((d) => d.playerId === socket.id)) return;
-
-  if (room.timer) clearTimeout(room.timer);
-
-  // Quien realizo el STOP
-  const stopper = room.players.find((p) => p.id === socket.id);
-  const stopperName = stopper
-    ? stopper.username || stopper.firstName || stopper.email
-    : "Alguien";
-
-  room.roundData.push({ playerId: socket.id, answers });
-
-  socket.to(roomId).emit("force_submit", { stoppedBy: stopperName });
-
-  room.stoppedBy = stopperName;
-
-  checkRoundComplete(io, roomId);
+		if (typeof data === "object" && data.rounds) {
+			const rounds = Number(data.rounds);
+			if (!isNaN(rounds)) {
+				room.config.totalRounds = rounds;
+				await room.save();
+				logger.info(`Room ${roomId} rounds set to ${rounds}`);
+			}
+		}
+		logger.info(`Room ${roomId} configured. Waiting for toggle_ready...`);
+	} catch (err) {
+		logger.error("Error in start_game handler:", err);
+	}
 };
 
-export const handleSubmitAnswers = (io, socket, { roomId, answers }) => {
-  const room = roomService.getRoom(roomId);
-  if (room && !room.roundData.find((d) => d.playerId === socket.id)) {
-    room.roundData.push({ playerId: socket.id, answers });
-    checkRoundComplete(io, roomId);
-  }
+// Logica para manejar el reset game - emit principal 'game_reset'
+export const handleResetGame = async (io, roomId) => {
+	try {
+		await clearRoomTimer(roomId);
+		const room = await gameService.resetGame(roomId);
+		if (room) {
+			emitPlayerList(io, roomId, room.players);
+			io.to(roomId).emit("game_reset");
+		}
+	} catch (err) {
+		logger.error("Reset Game Error", err);
+	}
+};
+
+// Logica para manejar el stop round - emit principal 'force_submit'
+export const handleStopRound = async (io, socket, { roomId, answers }) => {
+	try {
+		const room = await fetchRoomOrError(socket, roomId);
+		if (!room) return;
+
+		if (room.roundData.find((d) => d.playerId === socket.id)) return;
+
+		await clearRoomTimer(roomId);
+
+		const stopper = room.players.find((p) => p.id === socket.id);
+		const stopperName = stopper
+			? stopper.username || stopper.firstName || stopper.email
+			: "Alguien";
+
+		room.roundData.push({ playerId: socket.id, answers });
+		room.stoppedBy = stopperName;
+		await room.save();
+
+		socket.to(roomId).emit("force_submit", { stoppedBy: stopperName });
+
+		await checkRoundComplete(io, roomId);
+	} catch (err) {
+		logger.error("Stop Round Error", err);
+	}
+};
+
+// Logica para manejar el submit answers
+export const handleSubmitAnswers = async (io, socket, { roomId, answers }) => {
+	try {
+		const room = await fetchRoomOrError(socket, roomId);
+		if (!room) return;
+
+		if (!room.roundData.find((d) => d.playerId === socket.id)) {
+			room.roundData.push({ playerId: socket.id, answers });
+			await room.save();
+			await checkRoundComplete(io, roomId);
+		}
+	} catch (err) {
+		logger.error("Submit Answers Error", err);
+	}
 };
