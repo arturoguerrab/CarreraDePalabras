@@ -65,7 +65,7 @@ const RoundView = ({
 	const isDisabled = isSubmitting || !!stoppedBy;
 
 	return (
-		<div className="min-h-screen bg-[#6366f1] flex items-center justify-center px-4 py-8 font-['Press_Start_2P'] relative overflow-hidden">
+		<div className="min-h-screen bg-retro-bg flex items-center justify-center px-4 py-8 font-arcade relative overflow-hidden">
 			{/* Fondo Cuadriculado */}
 			<div
 				className="absolute inset-0 opacity-10"
@@ -79,11 +79,11 @@ const RoundView = ({
 			{/* Notification when someone presses STOP */}
 
 			{/* Decoración Retro */}
-			<div className="absolute top-24 left-8 w-12 h-12 bg-[#c084fc] border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] transform -rotate-12 z-0"></div>
-			<div className="absolute bottom-24 right-8 w-16 h-16 bg-[#fbbf24] border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] transform rotate-6 z-0"></div>
+			<div className="absolute top-24 left-8 w-12 h-12 bg-retro-purple-light border-4 border-black shadow-retro-sm transform -rotate-12 z-0"></div>
+			<div className="absolute bottom-24 right-8 w-16 h-16 bg-retro-yellow border-4 border-black shadow-retro-sm transform rotate-6 z-0"></div>
 
 			<div className="w-full max-w-4xl relative z-10">
-				<div className="bg-white border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] rounded-3xl p-6 md:p-12 relative">
+				<div className="bg-white border-4 border-black shadow-retro rounded-3xl p-6 md:p-12 relative">
 					{/* Cabecera del Juego */}
 					<header className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
 						<div>
@@ -99,7 +99,7 @@ const RoundView = ({
 						<div className="flex gap-4">
 							{/* Timer */}
 							<div
-								className={`w-24 h-24 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center justify-center transform transition-all ${timeLeft <= 10 ? "bg-red-500 animate-pulse" : "bg-white"}`}
+								className={`w-24 h-24 rounded-2xl border-4 border-black shadow-retro flex flex-col items-center justify-center transform transition-all ${timeLeft <= 10 ? "bg-red-500 animate-pulse" : "bg-white"}`}
 							>
 								<span
 									className={`text-4xl font-black drop-shadow-[2px_2px_0px_rgba(0,0,0,0.2)] ${timeLeft <= 10 ? "text-white" : "text-black"}`}
@@ -114,7 +114,7 @@ const RoundView = ({
 							</div>
 
 							<div className="relative group">
-								<div className="w-24 h-24 bg-[#fbbf24] rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center transform group-hover:-translate-y-1 transition-transform">
+								<div className="w-24 h-24 bg-retro-yellow rounded-2xl border-4 border-black shadow-retro flex items-center justify-center transform group-hover:-translate-y-1 transition-transform">
 									<span className="text-5xl text-white drop-shadow-[2px_2px_0px_rgba(0,0,0,0.5)]">
 										{letra}
 									</span>
@@ -156,7 +156,7 @@ const RoundView = ({
 							<button
 								type="submit"
 								disabled={isDisabled}
-								className="group relative px-12 py-5 bg-[#ef4444] rounded-2xl border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-2 active:shadow-none transition-all overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
+								className="group relative px-12 py-5 bg-retro-red rounded-2xl border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-y-2 active:shadow-none transition-all overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
 							>
 								<span className="relative z-10 text-white text-xl md:text-2xl uppercase drop-shadow-md">
 									{isSubmitting ? "¡ENVIANDO!" : "¡STOP!"}

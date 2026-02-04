@@ -1,14 +1,12 @@
 import { GoogleGenAI } from "@google/genai";
 import ValidatedResponse from "../models/validatedResponseModel.js";
-import { CATEGORIES, CATEGORIES_FLEXIBLE } from "../config/gameConstants.js";
+import { CATEGORIES, CATEGORIES_FLEXIBLE } from "../utils/gameConstants.js";
 import config from "../config/env.js";
 import logger from "../utils/logger.js";
 import * as gameService from "./gameService.js";
 import Room from "../models/roomModel.js";
 
 /**
- * AI JUDGE SERVICE
- *
  * Este servicio se encarga de:
  * 1. Recibir las respuestas de los jugadores.
  * 2. Verificar si ya tenemos esas palabras validadas en la base de datos.

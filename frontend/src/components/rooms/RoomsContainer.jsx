@@ -2,9 +2,7 @@ import { useState, useEffect } from "react";
 import { useRoom } from "../../context/RoomContext.jsx";
 import RoomsView from "./RoomsView";
 
-/**
- * Gestiona la lógica para unirse o crear salas de juego.
- */
+//Gestiona la lógica para unirse o crear salas de juego.
 const RoomsContainer = () => {
 	const { roomError, createRoom, joinRoom, clearError } = useRoom();
 	const [roomToJoin, setRoomToJoin] = useState("");

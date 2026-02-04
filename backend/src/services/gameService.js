@@ -1,4 +1,4 @@
-import { ALL_CATEGORIES } from "../config/gameConstants.js";
+import { ALL_CATEGORIES } from "../utils/gameConstants.js";
 import * as roomService from "./roomService.js";
 
 const ALPHABET_ARRAY = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");

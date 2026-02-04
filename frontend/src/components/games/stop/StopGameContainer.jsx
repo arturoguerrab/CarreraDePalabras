@@ -7,10 +7,10 @@ import { useSound } from "../../../context/SoundContext";
 
 import { useRoom } from "../../../context/RoomContext";
 
-import LobbyView from "./LobbyView";
+import MatchLobbyView from "./MatchLobbyView";
 import RoundContainer from "./RoundContainer";
 import ResultsView from "./ResultsView";
-import ConfirmationModal from "../../common/ConfirmationModal";
+import ConfirmationModalView from "../../common/ConfirmationModalView";
 
 /**
  * Organiza el flujo de la sala de espera (Lobby de partida) y selecciona
@@ -26,14 +26,7 @@ const StopGameContainer = () => {
 	const { playStopAlarm } = useSound();
 
 	// Room Context
-	const {
-		joinRoom,
-		leaveRoom,
-		players,
-		toggleReady,
-		roomError,
-		clearError: clearRoomError,
-	} = useRoom();
+	const { joinRoom, leaveRoom, players, toggleReady, roomError } = useRoom();
 
 	// Game Context
 	const {
@@ -44,7 +37,6 @@ const StopGameContainer = () => {
 		isGameOver,
 		roundInfo,
 		resetGame,
-		clearError: clearGameError,
 		countdown,
 		stoppedBy,
 		startGame,
@@ -52,10 +44,6 @@ const StopGameContainer = () => {
 	} = useGame();
 
 	const combinedError = gameError || roomError;
-	const clearError = () => {
-		clearRoomError();
-		clearGameError();
-	};
 
 	useEffect(() => {
 		// Intento de unión automática al entrar o refrescar
@@ -110,7 +98,7 @@ const StopGameContainer = () => {
 			setHasShownNotification(true);
 			setCanCloseNotification(false);
 
-			// 🔊 Play Alarm Sound
+			// Play Alarm Sound
 			playStopAlarm();
 		}
 	}, [
@@ -121,7 +109,7 @@ const StopGameContainer = () => {
 		playStopAlarm,
 	]);
 
-	// Effect 1.5: Handle Timer (Independent of gameState changes)
+	// Manejo del temporizador de la notificación
 	useEffect(() => {
 		if (showStopNotification) {
 			setCanCloseNotification(false);
@@ -134,22 +122,22 @@ const StopGameContainer = () => {
 				clearTimeout(timer);
 			};
 		} else {
-			// Reset whenever notification closes
+			// Reset cuando se cierra la notificación
 			setCanCloseNotification(false);
 		}
 	}, [showStopNotification]);
 
-	// Effect 2: Handle Closing
+	// Manejo del cierre de la notificación
 	useEffect(() => {
 		if (!showStopNotification) return;
 
-		// Immediate close triggers
+		// Cierre inmediato
 		if (gameState === "lobby" || !stoppedBy) {
 			setShowStopNotification(false);
 			return;
 		}
 
-		// Graceful close triggers
+		// Cierre normal
 		if (canCloseNotification) {
 			const isStillProcessing =
 				gameState === "playing" || gameState === "calculating";
@@ -170,16 +158,16 @@ const StopGameContainer = () => {
 		<>
 			{/* Notificación Global de STOP (Pantalla Completa) */}
 			{showStopNotification && stoppedBy && (
-				<div className="fixed inset-0 z-[100] flex items-center justify-center animate-in fade-in duration-300 pointer-events-auto">
+				<div className="fixed inset-0 z-100 flex items-center justify-center animate-in fade-in duration-300 pointer-events-auto">
 					{/* Backdrop con Blur */}
 					<div className="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
 
 					{/* Cartel Vibrante */}
 					<div className="relative animate-in zoom-in-50 duration-500 w-11/12 max-w-lg">
-						<div className="bg-[#fbbf24] border-[6px] border-black shadow-[16px_16px_0px_0px_rgba(0,0,0,1)] rounded-3xl p-8 md:p-12 text-center transform -rotate-2">
+						<div className="bg-retro-yellow border-[6px] border-black shadow-[16px_16px_0px_0px_rgba(0,0,0,1)] rounded-3xl p-8 md:p-12 text-center transform -rotate-2">
 							{/* Decoraciones */}
-							<div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-[#ef4444] text-white border-4 border-black px-6 py-2 text-xs md:text-sm uppercase font-extrabold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] tracking-widest whitespace-nowrap rotate-1">
-								✋ RONDA DETENIDA ✋
+							<div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-retro-red text-white border-4 border-black px-6 py-2 text-xs md:text-sm uppercase font-extrabold shadow-retro-sm tracking-widest whitespace-nowrap rotate-1">
+								RONDA DETENIDA
 							</div>
 
 							<div className="flex flex-col items-center gap-6 mt-4">
@@ -194,7 +182,7 @@ const StopGameContainer = () => {
 									<h3 className="text-black text-2xl md:text-4xl uppercase font-black tracking-tighter leading-tight bg-white border-4 border-black px-4 py-2 transform rotate-1 inline-block shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]">
 										{stoppedBy}
 									</h3>
-									<p className="text-[#ef4444] text-sm md:text-base uppercase font-black tracking-widest pt-2">
+									<p className="text-retro-red text-sm md:text-base uppercase font-black tracking-widest pt-2">
 										¡HA PRESIONADO STOP!
 									</p>
 								</div>
@@ -245,7 +233,7 @@ const StopGameContainer = () => {
 			{/* 4. Manejo de error crítico (ej. sala llena, inexistente o partida iniciada) */}
 			{combinedError &&
 				!["playing", "calculating", "results"].includes(gameState) && (
-					<div className="min-h-screen bg-[#6366f1] flex items-center justify-center px-4 py-12 font-['Press_Start_2P'] relative overflow-hidden">
+					<div className="min-h-screen bg-retro-bg flex items-center justify-center px-4 py-12 font-arcade relative overflow-hidden">
 						<div
 							className="absolute inset-0 opacity-10"
 							style={{
@@ -264,7 +252,7 @@ const StopGameContainer = () => {
 							</p>
 							<button
 								onClick={() => navigate("/lobby")}
-								className="w-full py-5 bg-[#ef4444] border-4 border-black text-white text-[10px] uppercase hover:bg-red-500 rounded-2xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all font-bold"
+								className="w-full py-5 bg-retro-red border-4 border-black text-white text-[10px] uppercase hover:bg-red-500 rounded-2xl shadow-retro hover:translate-y-1 hover:shadow-retro-sm transition-all font-bold"
 							>
 								Volver al Menú
 							</button>
@@ -275,7 +263,7 @@ const StopGameContainer = () => {
 			{/* 5. Sala de Espera / Lobby (Vista por defecto si no hay errores ni otros estados) */}
 			{!["playing", "calculating", "results"].includes(gameState) &&
 				!combinedError && (
-					<LobbyView
+					<MatchLobbyView
 						isConnected={socket?.connected}
 						userEmail={user?.email}
 						roomId={urlRoomId}
@@ -288,7 +276,7 @@ const StopGameContainer = () => {
 				)}
 
 			{/* Modal de Confirmación Global */}
-			<ConfirmationModal
+			<ConfirmationModalView
 				isOpen={showExitModal}
 				onConfirm={confirmLeave}
 				onCancel={() => setShowExitModal(false)}

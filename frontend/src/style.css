@@ -1,2 +1,27 @@
 @import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
 @import "tailwindcss";
+
+@theme {
+	--font-arcade: "Press Start 2P", system-ui, sans-serif;
+
+	--color-retro-bg: #6366f1;
+	--color-retro-yellow: #fbbf24;
+	--color-retro-green: #4ade80;
+	--color-retro-red: #ef4444;
+	--color-retro-blue: #3b82f6;
+
+	--color-retro-purple: #8b5cf6;
+	--color-retro-purple-light: #c084fc;
+	--color-retro-pink: #ec4899;
+	--color-retro-pink-light: #f472b6;
+	--color-retro-green-dark: #16a34a;
+	--color-retro-yellow-bright: #facc15;
+	--color-retro-blue-light: #60a5fa;
+
+	--color-retro-yellow-dark: #ca8a04;
+	--color-retro-red-dark: #dc2626;
+
+	--shadow-retro: 6px 6px 0px 0px #000;
+	--shadow-retro-sm: 4px 4px 0px 0px #000;
+	--shadow-retro-lg: 12px 12px 0px 0px #000;
+}

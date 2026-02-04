@@ -4,7 +4,7 @@ import React, { useState } from "react";
  * STOP MP VIEW
  * Renderiza la sala de espera de una partida de Stop.
  */
-const LobbyView = ({
+const MatchLobbyView = ({
 	isConnected,
 	userEmail,
 	roomId,
@@ -38,7 +38,7 @@ const LobbyView = ({
 	};
 
 	return (
-		<div className="min-h-screen bg-[#6366f1] flex items-center justify-center px-4 py-12 font-['Press_Start_2P'] relative overflow-hidden">
+		<div className="min-h-screen bg-retro-bg flex items-center justify-center px-4 py-12 font-arcade relative overflow-hidden">
 			{/* Fondo Cuadriculado */}
 			<div
 				className="absolute inset-0 opacity-10"
@@ -50,11 +50,11 @@ const LobbyView = ({
 			></div>
 
 			{/* Decoración Retro */}
-			<div className="absolute top-10 right-10 w-16 h-16 bg-[#ef4444] border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] transform rotate-45"></div>
-			<div className="absolute bottom-10 left-10 w-20 h-8 bg-[#60a5fa] border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] transform -rotate-3"></div>
+			<div className="absolute top-10 right-10 w-16 h-16 bg-retro-red border-4 border-black shadow-retro-sm transform rotate-45"></div>
+			<div className="absolute bottom-10 left-10 w-20 h-8 bg-retro-blue-light border-4 border-black shadow-retro-sm transform -rotate-3"></div>
 
 			<div className="w-full max-w-2xl relative z-10">
-				<div className="bg-white border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] rounded-3xl p-8 relative">
+				<div className="bg-white border-4 border-black shadow-retro rounded-3xl p-8 relative">
 					{/* Cabecera de la Sala */}
 					<header className="text-center mb-8">
 						<div className="inline-block bg-yellow-100 border-4 border-black px-4 py-2 rounded-xl mb-4 shadow-sm">
@@ -78,7 +78,7 @@ const LobbyView = ({
 						{isOwner && !isReady && !countdown && (
 							<div className="mb-6 p-4 bg-yellow-50 border-2 border-dashed border-yellow-400 rounded-2xl">
 								<label className="block text-[10px] text-gray-500 uppercase font-bold mb-2">
-									🏁 Rondas a Jugar:
+									Rondas a Jugar:
 								</label>
 								<div className="flex justify-center gap-2">
 									{[3, 5, 10].map((r) => (
@@ -110,11 +110,16 @@ const LobbyView = ({
 									</div>
 
 									<span
-										className={`flex-grow truncate uppercase flex items-center gap-2 ${player.email === userEmail ? "text-black font-bold underline decoration-wavy" : "text-gray-600"}`}
+										className={`grow truncate uppercase flex items-center gap-2 ${player.email === userEmail ? "text-black font-bold underline decoration-wavy" : "text-gray-600"}`}
 									>
 										{player.displayName}
 										{index === 0 && (
-											<span title="Administrador de Sala">👑</span>
+											<span
+												className="text-lg -mt-3"
+												title="Administrador de Sala"
+											>
+												👑
+											</span>
 										)}
 									</span>
 
@@ -144,31 +149,23 @@ const LobbyView = ({
 						<button
 							onClick={onToggle}
 							disabled={isSubmitting || (countdown && countdown > 0)}
-							className={`w-full py-5 border-4 border-black text-white text-[10px] uppercase rounded-2xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed ${isReady ? "bg-[#ef4444] hover:bg-red-500" : "bg-[#16a34a] hover:bg-green-500"}`}
+							className={`w-full py-5 border-4 border-black text-white text-[10px] uppercase rounded-2xl shadow-retro hover:translate-y-1 hover:shadow-retro-sm transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed ${isReady ? "bg-retro-red hover:bg-red-500" : "bg-retro-green-dark hover:bg-green-500"}`}
 						>
 							{countdown && countdown > 0 ? (
-								<>
-									<span className="text-xl mr-3 animate-pulse">🔥</span>{" "}
-									{countdown}...
-								</>
+								<>{countdown}...</>
 							) : isReady ? (
-								<>
-									<span className="text-xl mr-3">🕒</span> CANCELAR LISTO
-								</>
+								<>CANCELAR LISTO</>
 							) : (
-								<>
-									<span className="text-xl mr-3">🎮</span>{" "}
-									{isOwner ? `EMPEZAR (${rounds} Rondas)` : "MARCAR LISTO"}
-								</>
+								<>{isOwner ? `EMPEZAR (${rounds} Rondas)` : "MARCAR LISTO"}</>
 							)}
 						</button>
 
 						<button
 							onClick={handleLeave}
 							disabled={countdown && countdown > 0}
-							className="w-full py-5 bg-white border-4 border-black text-black text-[10px] uppercase hover:bg-gray-100 rounded-2xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+							className="w-full py-5 bg-white border-4 border-black text-black text-[10px] uppercase hover:bg-gray-100 rounded-2xl shadow-retro hover:translate-y-1 hover:shadow-retro-sm transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed"
 						>
-							<span className="text-xl mr-3">🚪</span> Salir de la Sala
+							Salir de la Sala
 						</button>
 
 						<p className="text-center text-[8px] text-gray-400 uppercase tracking-tighter pt-4">
@@ -181,4 +178,4 @@ const LobbyView = ({
 	);
 };
 
-export default LobbyView;
+export default MatchLobbyView;

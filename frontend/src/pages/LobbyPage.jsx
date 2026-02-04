@@ -1,7 +1,7 @@
-import LobbyMenu from "../components/lobby/LobbyMenu";
+import LobbyContainer from "../components/lobby/LobbyContainer";
 
 const LobbyPage = () => {
-	return <LobbyMenu />;
+	return <LobbyContainer />;
 };
 
 export default LobbyPage;

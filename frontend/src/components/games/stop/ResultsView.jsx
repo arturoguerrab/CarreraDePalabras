@@ -68,7 +68,7 @@ const ResultsView = ({
 						backgroundSize: "40px 40px",
 					}}
 				></div>
-				<div className="bg-white border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] rounded-3xl p-10 max-w-md w-full text-center z-10">
+				<div className="bg-white border-4 border-black shadow-retro rounded-3xl p-10 max-w-md w-full text-center z-10">
 					<div className="text-red-500 text-6xl mb-6">⚠️</div>
 					<h3 className="text-base text-black mb-4 uppercase font-bold">
 						Error Crítico
@@ -78,7 +78,7 @@ const ResultsView = ({
 					</p>
 					<button
 						onClick={onLeave}
-						className="w-full py-4 bg-[#ef4444] border-4 border-black text-white text-[10px] uppercase hover:bg-red-500 rounded-xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all"
+						className="w-full py-4 bg-retro-red border-4 border-black text-white text-[10px] uppercase hover:bg-red-500 rounded-xl shadow-retro hover:translate-y-1 hover:shadow-retro-sm transition-all"
 					>
 						Volver al Menú
 					</button>
@@ -95,7 +95,7 @@ const ResultsView = ({
 		const winner = sortedScores[0];
 
 		return (
-			<div className="min-h-screen bg-[#fbbf24] flex items-center justify-center font-['Press_Start_2P'] p-4 relative overflow-hidden">
+			<div className="min-h-screen bg-retro-yellow flex items-center justify-center font-arcade p-4 relative overflow-hidden">
 				<div
 					className="absolute inset-0 opacity-10"
 					style={{
@@ -104,8 +104,8 @@ const ResultsView = ({
 					}}
 				></div>
 
-				<div className="bg-white border-4 border-black shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] rounded-[2.5rem] p-10 max-w-lg w-full relative z-10">
-					<div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-[#ef4444] border-4 border-black text-white px-8 py-3 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-[10px] uppercase tracking-widest whitespace-nowrap">
+				<div className="bg-white border-4 border-black shadow-retro-lg rounded-[2.5rem] p-10 max-w-lg w-full relative z-10">
+					<div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-retro-red border-4 border-black text-white px-8 py-3 rounded-xl shadow-retro-sm text-[10px] uppercase tracking-widest whitespace-nowrap">
 						🏆 PODIO FINAL 🏆
 					</div>
 
@@ -145,15 +145,15 @@ const ResultsView = ({
 					<div className="flex flex-col sm:flex-row gap-4">
 						<button
 							onClick={onPlayAgain}
-							className="flex-grow bg-[#16a34a] border-4 border-black text-white text-[10px] py-4 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-none transition-all uppercase"
+							className="flex-grow bg-retro-green-dark border-4 border-black text-white text-[10px] py-4 rounded-xl shadow-retro hover:translate-y-1 hover:shadow-none transition-all uppercase"
 						>
-							🔄 Volver a la Sala
+							Volver a la Sala
 						</button>
 						<button
 							onClick={onLeave}
-							className="flex-grow bg-[#ef4444] border-4 border-black text-white text-[10px] py-4 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-none transition-all uppercase"
+							className="flex-grow bg-retro-red border-4 border-black text-white text-[10px] py-4 rounded-xl shadow-retro hover:translate-y-1 hover:shadow-none transition-all uppercase"
 						>
-							🚪 Salir
+							Salir
 						</button>
 					</div>
 				</div>
@@ -165,7 +165,7 @@ const ResultsView = ({
 	 * VISTA DE RESULTADOS DE RONDA
 	 */
 	return (
-		<div className="min-h-screen bg-[#6366f1] px-4 py-12 font-['Press_Start_2P'] relative overflow-hidden">
+		<div className="min-h-screen bg-retro-bg px-4 py-12 font-arcade relative overflow-hidden">
 			<div
 				className="absolute inset-0 opacity-10"
 				style={{
@@ -191,7 +191,7 @@ const ResultsView = ({
 				</header>
 
 				{/* Listado por Categorías */}
-				<main className="bg-white border-4 border-black shadow-[12px_12px_0px_0px_rgba(0,0,0,0.2)] rounded-[3rem] p-8 md:p-12 mb-12">
+				<main className="bg-white border-4 border-black shadow-retro-lg rounded-[3rem] p-8 md:p-12 mb-12">
 					<div className="space-y-14">
 						{visual.length > 0 ? (
 							visual.map((bloque, idx) => (
@@ -233,7 +233,7 @@ const ResultsView = ({
 												{/* Stopper Badge */}
 												{stoppedBy && item.nombre === stoppedBy && (
 													<div className="absolute top-2 right-2 transform rotate-[10deg]">
-														<div className="bg-[#fbbf24] text-black text-[6px] border-2 border-black px-2 py-0.5 rounded shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-bold uppercase tracking-tighter animate-pulse">
+														<div className="bg-retro-yellow text-black text-[6px] border-2 border-black px-2 py-0.5 rounded shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-bold uppercase tracking-tighter animate-pulse">
 															⚡ Stopper
 														</div>
 													</div>
@@ -269,7 +269,7 @@ const ResultsView = ({
 								<button
 									onClick={handleReadyClick}
 									disabled={isSubmitting || (countdown && countdown > 0)}
-									className={`w-full py-5 px-12 border-4 border-black text-white text-[10px] uppercase rounded-2xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed ${players?.find((p) => p.email === userEmail)?.ready ? "bg-[#ef4444] hover:bg-red-500" : "bg-[#16a34a] hover:bg-green-500"}`}
+									className={`w-full py-5 px-12 border-4 border-black text-white text-[10px] uppercase rounded-2xl shadow-retro hover:translate-y-1 hover:shadow-retro-sm transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed ${players?.find((p) => p.email === userEmail)?.ready ? "bg-retro-red hover:bg-red-500" : "bg-retro-green-dark hover:bg-green-500"}`}
 								>
 									{countdown && countdown > 0 ? (
 										<>
@@ -277,9 +277,9 @@ const ResultsView = ({
 											{countdown}...
 										</>
 									) : players?.find((p) => p.email === userEmail)?.ready ? (
-										"🕒 CANCELAR LISTO"
+										"CANCELAR LISTO"
 									) : (
-										"✅ MARCAR LISTO"
+										"MARCAR LISTO"
 									)}
 								</button>
 
@@ -291,9 +291,9 @@ const ResultsView = ({
 						) : (
 							<button
 								onClick={() => setShowFinalScore(true)}
-								className="py-5 px-12 bg-[#fbbf24] border-4 border-black text-black text-[10px] uppercase hover:bg-yellow-500 rounded-2xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all font-bold"
+								className="py-5 px-12 bg-retro-yellow border-4 border-black text-black text-[10px] uppercase hover:bg-yellow-500 rounded-2xl shadow-retro hover:translate-y-1 hover:shadow-retro-sm transition-all font-bold"
 							>
-								🏆 Ver Ganador Final
+								Ver Ganador Final
 							</button>
 						)}
 
@@ -301,9 +301,9 @@ const ResultsView = ({
 							<button
 								onClick={onLeave}
 								disabled={countdown && countdown > 0}
-								className="py-4 px-8 bg-white border-4 border-black text-black text-[8px] uppercase hover:bg-gray-100 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-none transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+								className="py-4 px-8 bg-white border-4 border-black text-black text-[8px] uppercase hover:bg-gray-100 rounded-xl shadow-retro hover:translate-y-1 hover:shadow-none transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed"
 							>
-								🚪 Salir
+								Salir
 							</button>
 						</div>
 					</footer>
