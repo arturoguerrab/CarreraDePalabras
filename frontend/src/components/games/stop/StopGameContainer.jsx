@@ -227,6 +227,7 @@ const StopGameContainer = () => {
 					userEmail={user?.email}
 					countdown={countdown}
 					stoppedBy={stoppedBy}
+					roomId={urlRoomId}
 				/>
 			)}
 

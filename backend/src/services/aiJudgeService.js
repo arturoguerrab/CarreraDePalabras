@@ -207,6 +207,7 @@ export const processRoundResults = async (io, roomId, room) => {
 				};
 
 				return {
+					playerId: p.id,
 					nombre: p.name,
 					palabra: word,
 					es_valida: val.v > 0,
@@ -237,11 +238,16 @@ export const processRoundResults = async (io, roomId, room) => {
 		});
 
 		// Guardar los puntajes calculados y limpiar datos de la ronda
-		room.roundData = [];
-		room.stoppedBy = null;
-		room.lastRoundResults = formattedResults; // Persistir resultados para reconexiones
-		room.markModified("scores");
-		await room.save();
+		// Re-fetch to avoid VersionError (concurrency with late submissions)
+		const freshRoom = await Room.findOne({ roomId });
+		if (freshRoom) {
+			freshRoom.roundData = [];
+			freshRoom.stoppedBy = null;
+			freshRoom.lastRoundResults = formattedResults;
+			freshRoom.scores = scores; // Update with calculated scores
+			freshRoom.markModified("scores");
+			await freshRoom.save();
+		}
 
 		const { isGameOver, currentRound } =
 			await gameService.finalizeRound(roomId);

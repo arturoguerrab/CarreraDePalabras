@@ -101,44 +101,48 @@ const MatchLobbyView = ({
 							{players.map((player, index) => (
 								<li
 									key={player.email}
-									className={`flex items-center gap-4 text-xs p-4 border-4 rounded-2xl transition-all ${player.ready ? "bg-green-50 border-green-500 shadow-[4px_4px_0px_0px_rgba(34,197,94,0.2)]" : "bg-gray-50 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.05)]"}`}
+									className={`flex items-center gap-2 md:gap-4 text-xs p-3 md:p-4 border-4 rounded-2xl transition-all ${player.ready ? "bg-green-50 border-green-500 shadow-[4px_4px_0px_0px_rgba(34,197,94,0.2)]" : "bg-gray-50 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.05)]"}`}
 								>
 									<div
-										className={`w-8 h-8 flex items-center justify-center rounded-lg border-2 border-black font-bold ${player.ready ? "bg-green-400 text-white" : "bg-white text-gray-400"}`}
+										className={`w-7 h-7 md:w-8 md:h-8 shrink-0 flex items-center justify-center rounded-lg border-2 border-black font-bold ${player.ready ? "bg-green-400 text-white" : "bg-white text-gray-400"}`}
 									>
 										{player.ready ? "✓" : index + 1}
 									</div>
 
-									<span
-										className={`grow truncate uppercase flex items-center gap-2 ${player.email === userEmail ? "text-black font-bold underline decoration-wavy" : "text-gray-600"}`}
-									>
-										{player.displayName}
-										{index === 0 && (
+									<div className="flex flex-col md:flex-row md:items-center justify-between grow gap-2 min-w-0">
+										<div className="flex items-center gap-2 min-w-0">
 											<span
-												className="text-lg -mt-3"
-												title="Administrador de Sala"
+												className={`truncate uppercase ${player.email === userEmail ? "text-black font-bold underline decoration-wavy" : "text-gray-600"}`}
 											>
-												👑
+												{player.displayName}
 											</span>
-										)}
-									</span>
+											{index === 0 && (
+												<span
+													className="text-base shrink-0 -mt-3"
+													title="Administrador de Sala"
+												>
+													👑
+												</span>
+											)}
+										</div>
 
-									<div className="flex items-center gap-2">
-										{player.ready ? (
-											<span className="text-[8px] bg-green-500 text-white px-3 py-1 rounded-full border-2 border-black uppercase font-bold animate-bounce">
-												LISTO
-											</span>
-										) : (
-											<span className="text-[8px] bg-gray-200 text-gray-500 px-3 py-1 rounded-full border-2 border-dashed border-gray-400 uppercase font-bold">
-												ESPERANDO
-											</span>
-										)}
+										<div className="flex items-center gap-1 md:gap-2 shrink-0">
+											{player.ready ? (
+												<span className="text-[7px] md:text-[8px] bg-green-500 text-white px-2 md:px-3 py-1 rounded-full border-2 border-black uppercase font-bold animate-bounce whitespace-nowrap">
+													LISTO
+												</span>
+											) : (
+												<span className="text-[7px] md:text-[8px] bg-gray-200 text-gray-500 px-2 md:px-3 py-1 rounded-full border-2 border-dashed border-gray-400 uppercase font-bold whitespace-nowrap">
+													ESPERANDO
+												</span>
+											)}
 
-										{player.email === userEmail && (
-											<span className="text-[8px] bg-blue-500 text-white px-2 py-1 rounded border-2 border-black uppercase font-bold">
-												TÚ
-											</span>
-										)}
+											{player.email === userEmail && (
+												<span className="text-[7px] md:text-[8px] bg-blue-500 text-white px-1.5 md:px-2 py-1 rounded border-2 border-black uppercase font-bold whitespace-nowrap">
+													TÚ
+												</span>
+											)}
+										</div>
 									</div>
 								</li>
 							))}

@@ -58,7 +58,7 @@ const RegisterView = ({
 								type="text"
 								value={firstName}
 								onChange={(e) => setFirstName(e.target.value)}
-								className="w-full bg-gray-100 border-4 border-black p-3 text-black text-base md:text-sm focus:bg-white focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] transition-all outline-none rounded-xl placeholder-gray-400"
+								className="w-full bg-gray-100 border-4 border-black p-3 text-black text-base focus:bg-white focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] transition-all outline-none rounded-xl placeholder-gray-400"
 								placeholder="Nombre"
 								required
 							/>
@@ -66,7 +66,7 @@ const RegisterView = ({
 								type="text"
 								value={lastName}
 								onChange={(e) => setLastName(e.target.value)}
-								className="w-full bg-gray-100 border-4 border-black p-3 text-black text-base md:text-sm focus:bg-white focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] transition-all outline-none rounded-xl placeholder-gray-400"
+								className="w-full bg-gray-100 border-4 border-black p-3 text-black text-base focus:bg-white focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] transition-all outline-none rounded-xl placeholder-gray-400"
 								placeholder="Apellido"
 								required
 							/>

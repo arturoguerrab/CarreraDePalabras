@@ -73,7 +73,7 @@ const ProfileView = ({
 										name="firstName"
 										value={formData.firstName}
 										onChange={handleChange}
-										className="w-full bg-white border-4 border-black rounded-xl px-4 py-3 text-black focus:outline-none focus:bg-yellow-50 text-xs md:text-sm font-sans"
+										className="w-full bg-white border-4 border-black rounded-xl px-4 py-3 text-black focus:outline-none focus:bg-yellow-50 text-base"
 									/>
 								</div>
 								<div>
@@ -85,7 +85,7 @@ const ProfileView = ({
 										name="lastName"
 										value={formData.lastName}
 										onChange={handleChange}
-										className="w-full bg-white border-4 border-black rounded-xl px-4 py-3 text-black focus:outline-none focus:bg-yellow-50 text-xs md:text-sm font-sans"
+										className="w-full bg-white border-4 border-black rounded-xl px-4 py-3 text-black focus:outline-none focus:bg-yellow-50 text-base"
 									/>
 								</div>
 								<button
@@ -111,7 +111,7 @@ const ProfileView = ({
 									name="username"
 									value={formData.username}
 									onChange={handleChange}
-									className="w-full bg-white border-4 border-black rounded-xl px-4 py-3 text-black focus:outline-none focus:bg-yellow-50 text-xs md:text-sm font-sans"
+									className="w-full bg-white border-4 border-black rounded-xl px-4 py-3 text-black focus:outline-none focus:bg-yellow-50 text-base"
 								/>
 							</div>
 							<button
@@ -142,7 +142,7 @@ const ProfileView = ({
 											name="currentPassword"
 											value={formData.currentPassword}
 											onChange={handleChange}
-											className="w-full bg-white border-4 border-black rounded-xl px-4 py-3 text-black focus:outline-none focus:bg-yellow-50 text-xs md:text-sm font-sans"
+											className="w-full bg-white border-4 border-black rounded-xl px-4 py-3 text-black focus:outline-none focus:bg-yellow-50 text-base font-sans"
 										/>
 									</div>
 									<div>
@@ -154,7 +154,7 @@ const ProfileView = ({
 											name="newPassword"
 											value={formData.newPassword}
 											onChange={handleChange}
-											className="w-full bg-white border-4 border-black rounded-xl px-4 py-3 text-black focus:outline-none focus:bg-yellow-50 text-xs md:text-sm font-sans"
+											className="w-full bg-white border-4 border-black rounded-xl px-4 py-3 text-black focus:outline-none focus:bg-yellow-50 text-base"
 										/>
 									</div>
 									<button
@@ -200,7 +200,7 @@ const ProfileView = ({
 											minLength={6}
 											value={newSetPassword}
 											onChange={(e) => setNewSetPassword(e.target.value)}
-											className="w-full bg-white border-4 border-gray-300 p-2 text-xs focus:outline-none focus:border-indigo-500 rounded-lg"
+											className="w-full bg-white border-4 border-gray-300 p-2 text-base focus:outline-none focus:border-indigo-500 rounded-lg"
 											placeholder="********"
 										/>
 									</div>

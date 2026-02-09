@@ -55,6 +55,7 @@ export const resetGame = async (roomId) => {
 	room.players.forEach((p) => {
 		p.ready = false;
 		p.dismissedResults = false;
+		p.judgmentTokens = 3;
 	});
 
 	await room.save();

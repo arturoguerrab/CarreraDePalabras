@@ -1,5 +1,6 @@
 import * as roomService from "../services/roomService.js";
 import { requireAuth } from "../utils/socketUtils.js";
+import Trial from "../models/trialModel.js";
 
 // funcion para emitir la lista de jugadores actualizada
 export const emitPlayerList = (io, roomId, players) => {
@@ -7,9 +8,13 @@ export const emitPlayerList = (io, roomId, players) => {
 		"update_player_list",
 		players.map((p) => ({
 			email: p.email,
+			id: p.id,
+			username: p.username,
+			firstName: p.firstName,
 			displayName: p.username || p.firstName || p.email,
 			ready: p.ready,
 			connected: p.connected,
+			judgmentTokens: p.judgmentTokens,
 		})),
 	);
 };
@@ -113,6 +118,38 @@ export const handleJoinRoom = async (io, socket, { room_id }) => {
 				});
 			}
 		}
+
+		// 3. TRIAL RECOVERY: Check if there is an active trial
+		const activeTrial = await Trial.findOne({
+			roomId: room_id,
+			status: "pending",
+		});
+		if (activeTrial) {
+			// Identity Fix: If this is the challenger returning, update their ID
+			if (
+				activeTrial.challengerEmail &&
+				activeTrial.challengerEmail === user.email
+			) {
+				activeTrial.challengerId = socket.id;
+				await activeTrial.save();
+			}
+
+			const challenger = room.players.find(
+				(p) => p.id === activeTrial.challengerId,
+			);
+			socket.emit("trial_started", {
+				trialId: activeTrial._id,
+				challengerName:
+					challenger?.username || challenger?.firstName || "Jugador",
+				targetPlayerId: activeTrial.targetPlayerId,
+				word: activeTrial.word,
+				category: activeTrial.category,
+				originalStatus: activeTrial.originalStatus,
+				challengerId: activeTrial.challengerId,
+				initialVoteCount: activeTrial.votes.length,
+				isRecovery: true,
+			});
+		}
 	} catch (error) {
 		socket.emit("error_joining", "Error al unirse a la sala");
 	}
@@ -124,9 +161,14 @@ export const handleDismissResults = async (io, socket, { roomId }) => {
 		const user = socket.request.user;
 		if (!user) return;
 
-		await roomService.updatePlayerByEmail(roomId, user.email, {
+		const room = await roomService.updatePlayerInRoom(roomId, socket.id, {
 			dismissedResults: true,
+			ready: false, // Reset ready state when returning to lobby
 		});
+
+		if (room) {
+			emitPlayerList(io, roomId, room.players);
+		}
 	} catch (error) {
 		console.error("Error dismissing results", error);
 	}

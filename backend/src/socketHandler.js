@@ -28,6 +28,10 @@ const socketHandler = (io) => {
 		socket.on("toggle_ready", (roomId) => {
 			gameHandler.handleToggleReady(io, socket, roomId);
 		});
+		// ToggleReady Final (Consensus for Podium)
+		socket.on("toggle_ready_final", (roomId) => {
+			gameHandler.handleFinalReady(io, socket, roomId);
+		});
 		// startGame - Game Context
 		socket.on("start_game", (data) => {
 			gameHandler.handleStartGame(socket, data);
@@ -52,6 +56,15 @@ const socketHandler = (io) => {
 
 		socket.on("submit_answers", (data) => {
 			gameHandler.handleSubmitAnswers(io, socket, data);
+		});
+
+		// Trial System Events
+		socket.on("start_trial", (data) => {
+			gameHandler.handleStartTrial(io, socket, data);
+		});
+
+		socket.on("vote_trial", (data) => {
+			gameHandler.handleTrialVote(io, socket, data);
 		});
 		// LeaveRoom - Game Context
 		socket.on("leave_room", (data) => {

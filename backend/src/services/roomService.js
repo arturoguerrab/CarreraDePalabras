@@ -55,6 +55,7 @@ export const createRoom = async (user, socketId) => {
 					username: user.username,
 					firstName: user.firstName,
 					ready: false,
+					judgmentTokens: 3,
 				},
 			],
 			lastActivity: new Date(),
@@ -135,6 +136,7 @@ export const joinRoom = async (roomId, user, socketId) => {
 						firstName: user.firstName,
 						ready: false,
 						dismissedResults: isGameOver ? true : false, // Si es Game Over, ya "vio" (saltó) los resultados
+						judgmentTokens: 3,
 					},
 				},
 				$set: { lastActivity: new Date() },
@@ -295,12 +297,14 @@ export const updatePlayerInRoom = async (roomId, socketId, updates) => {
 			updateFields[`players.$.${key}`] = value;
 		}
 
-		await Room.updateOne(
+		return await Room.findOneAndUpdate(
 			{ roomId, "players.id": socketId },
 			{ $set: updateFields },
+			{ new: true },
 		);
 	} catch (error) {
 		logger.error("Error updating player in room:", error);
+		return null;
 	}
 };
 
@@ -312,11 +316,47 @@ export const updatePlayerByEmail = async (roomId, email, updates) => {
 			updateFields[`players.$.${key}`] = value;
 		}
 
-		const result = await Room.updateOne(
+		return await Room.findOneAndUpdate(
 			{ roomId, "players.email": email },
 			{ $set: updateFields },
+			{ new: true },
 		);
 	} catch (error) {
 		logger.error("Error updating player in room by email:", error);
+		return null;
+	}
+};
+
+// Resetear sala completa para el Lobby (Limpia listos y para el juego)
+export const resetRoomForLobby = async (roomId) => {
+	try {
+		return await Room.findOneAndUpdate(
+			{ roomId },
+			{
+				$set: {
+					isPlaying: false,
+					"players.$[].ready": false,
+					"players.$[].dismissedResults": false,
+				},
+			},
+			{ new: true },
+		);
+	} catch (error) {
+		logger.error(`Error resetting room ${roomId} for lobby:`, error);
+		return null;
+	}
+};
+
+// Adquirir bloqueo de cálculo de forma atómica
+export const acquireCalculationLock = async (roomId) => {
+	try {
+		return await Room.findOneAndUpdate(
+			{ roomId, isCalculating: false }, // Condición: no estar calculando
+			{ $set: { isCalculating: true } }, // Acción: poner a true
+			{ new: true },
+		);
+	} catch (error) {
+		logger.error(`Error acquiring calculation lock for room ${roomId}:`, error);
+		return null;
 	}
 };

@@ -65,7 +65,7 @@ const RoomsView = ({
 									value={roomToJoin}
 									onChange={handleRoomToJoinChange}
 									onFocus={() => error && clearError()}
-									className={`w-full bg-gray-50 border-4 p-4 text-black text-sm md:text-base focus:bg-white transition-all outline-none rounded-2xl text-center placeholder-gray-300 uppercase font-bold ${error ? "border-red-500 bg-red-50 animate-shake" : "border-black"}`}
+									className={`w-full bg-gray-50 border-4 p-4 text-black text-base focus:bg-white transition-all outline-none rounded-2xl text-center placeholder-gray-300 uppercase font-bold ${error ? "border-red-500 bg-red-50 animate-shake" : "border-black"}`}
 									placeholder="CÓDIGO"
 									maxLength={4}
 								/>

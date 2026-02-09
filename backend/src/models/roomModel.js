@@ -8,6 +8,7 @@ const PlayerSchema = new mongoose.Schema({
 	ready: { type: Boolean, default: false },
 	connected: { type: Boolean, default: true },
 	dismissedResults: { type: Boolean, default: false },
+	judgmentTokens: { type: Number, default: 3 },
 });
 
 const RoundDataSchema = new mongoose.Schema({

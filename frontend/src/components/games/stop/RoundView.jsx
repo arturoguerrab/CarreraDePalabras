@@ -30,9 +30,10 @@ const RoundView = ({
 				const newValue = prev - 1;
 
 				// Sonido de Tic-Tac
-				if (newValue >= 0) {
-					playTick(newValue);
-				}
+				// Sonido de Tic-Tac (Desactivado)
+				// if (newValue >= 0) {
+				// 	playTick(newValue);
+				// }
 
 				if (prev <= 1) {
 					clearInterval(timer);
@@ -141,7 +142,7 @@ const RoundView = ({
 										onKeyDown={handleKeyDown}
 										placeholder="..."
 										disabled={isDisabled}
-										className={`w-full bg-gray-50 border-4 border-gray-100 focus:border-black rounded-xl p-4 text-black text-sm md:text-base focus:bg-white focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.05)] transition-all outline-none placeholder-gray-300 ${isDisabled ? "opacity-50 cursor-not-allowed bg-gray-200" : ""}`}
+										className={`w-full bg-gray-50 border-4 border-gray-100 focus:border-black rounded-xl p-4 text-black text-base focus:bg-white focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.05)] transition-all outline-none placeholder-gray-300 ${isDisabled ? "opacity-50 cursor-not-allowed bg-gray-200" : ""}`}
 										autoComplete="off"
 										autoCorrect="off"
 										autoCapitalize="off"

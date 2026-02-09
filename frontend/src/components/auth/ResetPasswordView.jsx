@@ -53,7 +53,7 @@ const ResetPasswordView = ({
 								required
 								value={password}
 								onChange={(e) => setPassword(e.target.value)}
-								className="w-full bg-white border-4 border-black rounded-xl px-4 py-3 text-black focus:outline-none focus:bg-yellow-50 text-xs font-sans"
+								className="w-full bg-white border-4 border-black rounded-xl px-4 py-3 text-black focus:outline-none focus:bg-yellow-50 text-base"
 							/>
 						</div>
 
@@ -66,7 +66,7 @@ const ResetPasswordView = ({
 								required
 								value={confirmPassword}
 								onChange={(e) => setConfirmPassword(e.target.value)}
-								className="w-full bg-white border-4 border-black rounded-xl px-4 py-3 text-black focus:outline-none focus:bg-yellow-50 text-xs font-sans"
+								className="w-full bg-white border-4 border-black rounded-xl px-4 py-3 text-black focus:outline-none focus:bg-yellow-50 text-base"
 							/>
 						</div>
 
