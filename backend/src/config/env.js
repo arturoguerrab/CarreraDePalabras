@@ -15,6 +15,7 @@ const config = {
 	},
 	EMAIL: {
 		USER: process.env.EMAIL_USER,
+		PASSWORD: process.env.EMAIL_PASSWORD,
 		ALIAS: process.env.EMAIL_ALIAS,
 	},
 	GEMINI_API_KEY: process.env.GEMINI_API_KEY,

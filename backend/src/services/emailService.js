@@ -1,39 +1,13 @@
 import nodemailer from "nodemailer";
-import { google } from "googleapis";
 import config from "../config/env.js";
-const OAuth2 = google.auth.OAuth2;
 
 const createTransporter = async () => {
 	try {
-		const oauth2Client = new OAuth2(
-			config.GOOGLE.CLIENT_ID,
-			config.GOOGLE.CLIENT_SECRET,
-			"https://developers.google.com/oauthplayground",
-		);
-
-		oauth2Client.setCredentials({
-			refresh_token: config.GOOGLE.REFRESH_TOKEN,
-		});
-
-		const accessToken = await new Promise((resolve, reject) => {
-			oauth2Client.getAccessToken((err, token) => {
-				if (err) {
-					console.error("Error al crear el token de acceso:", err);
-					reject(`Error al crear el token de acceso: ${err.message || err}`);
-				}
-				resolve(token);
-			});
-		});
-
 		const transporter = nodemailer.createTransport({
 			service: "gmail",
 			auth: {
-				type: "OAuth2",
 				user: config.EMAIL.USER,
-				accessToken,
-				clientId: config.GOOGLE.CLIENT_ID,
-				clientSecret: config.GOOGLE.CLIENT_SECRET,
-				refreshToken: config.GOOGLE.REFRESH_TOKEN,
+				pass: config.EMAIL.PASSWORD, // Se requiere nueva variable EMAIL_PASSWORD
 			},
 		});
 

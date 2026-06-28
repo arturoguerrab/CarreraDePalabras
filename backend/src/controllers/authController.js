@@ -65,12 +65,12 @@ export const registerUser = async (req, res, next) => {
 
 		await newUser.save();
 
-		// Send verification email
-		await sendVerificationEmail(
+		// Send verification email asynchronously so it doesn't block the response
+		sendVerificationEmail(
 			newUser.email,
 			newUser.firstName,
 			verificationToken,
-		);
+		).catch(err => console.error("Fallo al enviar correo en background", err));
 
 		const token = generateToken(newUser._id);
 
@@ -306,7 +306,9 @@ export const resendVerification = async (req, res, next) => {
 		user.verificationToken = verificationToken;
 		await user.save();
 
-		await sendVerificationEmail(user.email, user.firstName, verificationToken);
+		// Send verification email asynchronously
+		sendVerificationEmail(user.email, user.firstName, verificationToken)
+			.catch(err => console.error("Fallo al enviar correo en background", err));
 
 		res.status(200).json({ message: "Email de verificación reenviado." });
 	} catch (error) {
@@ -332,7 +334,9 @@ export const forgotPassword = async (req, res, next) => {
 
 		await user.save();
 
-		await sendPasswordResetEmail(user.email, resetToken);
+		// Send password reset email asynchronously
+		sendPasswordResetEmail(user.email, resetToken)
+			.catch(err => console.error("Fallo al enviar correo en background", err));
 
 		res.status(200).json({
 			message: "Si el email existe, se ha enviado un enlace de recuperación.",
