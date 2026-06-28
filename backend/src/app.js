@@ -54,8 +54,8 @@ const sessionMiddleware = session({
 	}),
 	cookie: {
 		httpOnly: true,
-		secure: config.NODE_ENV === "production",
-		sameSite: config.NODE_ENV === "production" ? 'none' : 'lax',
+		secure: true,
+		sameSite: 'none',
 		maxAge: 1000 * 60 * 60 * 24,
 	},
 });
