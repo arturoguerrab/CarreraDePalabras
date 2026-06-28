@@ -19,11 +19,28 @@ export const AuthContextProvider = ({ children }) => {
 	useEffect(() => {
 		const checkSession = async () => {
 			try {
+				// Revisar si hay un token en la URL (Google Login)
+				const urlParams = new URLSearchParams(window.location.search);
+				const tokenFromUrl = urlParams.get("token");
+
+				if (tokenFromUrl) {
+					localStorage.setItem("token", tokenFromUrl);
+					window.history.replaceState({}, document.title, window.location.pathname);
+				}
+
+				const token = localStorage.getItem("token");
+				if (!token) {
+					setUser(null);
+					setIsLoading(false);
+					return;
+				}
+
 				const response = await stopAPI.get("/auth/user");
 				setUser(response.data.isLoggedIn ? response.data.user : null);
 			} catch (error) {
 				console.error("Error de sesión:", error);
 				setUser(null);
+				localStorage.removeItem("token");
 			} finally {
 				setIsLoading(false);
 			}
@@ -36,6 +53,7 @@ export const AuthContextProvider = ({ children }) => {
 		async (email, password) => {
 			const response = await stopAPI.post("/auth/login", { email, password });
 			if (response.data.user) {
+				localStorage.setItem("token", response.data.token);
 				setUser(response.data.user);
 				sessionStorage.removeItem("verificationBannerHidden"); // Reset banner state
 			}
@@ -46,7 +64,13 @@ export const AuthContextProvider = ({ children }) => {
 
 	// Enviar form de Registro
 	const register = useCallback(
-		(userData) => stopAPI.post("/auth/register", userData),
+		async (userData) => {
+			const response = await stopAPI.post("/auth/register", userData);
+			if (response.data.token) {
+				localStorage.setItem("token", response.data.token);
+			}
+			return response;
+		},
 		[],
 	);
 
@@ -55,6 +79,7 @@ export const AuthContextProvider = ({ children }) => {
 		try {
 			await stopAPI.get("/auth/logout");
 			setUser(null);
+			localStorage.removeItem("token");
 			sessionStorage.removeItem("verificationBannerHidden"); // Reset banner state
 		} catch (err) {
 			console.error("Error logout:", err);

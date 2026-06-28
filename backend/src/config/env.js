@@ -3,6 +3,7 @@ import "dotenv/config";
 const config = {
 	PORT: process.env.PORT || 3000,
 	SESSION_SECRET: process.env.SESSION_SECRET,
+	JWT_SECRET: process.env.JWT_SECRET || process.env.SESSION_SECRET,
 	CLIENT_URL: process.env.CLIENT_URL || "http://localhost:5173",
 	MONGO_DB_URI: process.env.MONGO_DB_URI,
 	NODE_ENV: process.env.NODE_ENV || "development",

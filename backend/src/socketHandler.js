@@ -1,9 +1,29 @@
 import logger from "./utils/logger.js";
 import * as roomHandler from "./handlers/roomHandler.js";
 import * as gameHandler from "./handlers/gameHandler.js";
+import { verifyToken } from "./utils/jwtUtils.js";
+import User from "./models/userModel.js";
 
 // Maneja todos las recciones entre cliente y socket y lo deriva al socket correspondiente
 const socketHandler = (io) => {
+	io.use(async (socket, next) => {
+		try {
+			const token = socket.handshake.auth?.token;
+			if (!token) return next(new Error("No token provided"));
+			
+			const decoded = verifyToken(token);
+			if (!decoded) return next(new Error("Invalid token"));
+			
+			const user = await User.findById(decoded.id);
+			if (!user) return next(new Error("User not found"));
+			
+			socket.request.user = user;
+			next();
+		} catch (err) {
+			next(new Error("Authentication error"));
+		}
+	});
+
 	io.on("connection", (socket) => {
 		// Valida la sesion
 		const sessionUser = socket.request.user;

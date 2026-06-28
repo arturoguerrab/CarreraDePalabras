@@ -2,10 +2,8 @@
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
-import session from "express-session";
 import cors from "cors";
 import helmet from "helmet";
-import MongoStore from "connect-mongo";
 import rateLimit from "express-rate-limit";
 import config from "./config/env.js";
 import passport from "./passportConfig.js";
@@ -43,31 +41,8 @@ const authLimiter = rateLimit({
 	message: { message: "Demasiados intentos. Inténtalo de nuevo más tarde." },
 });
 
-// Manejo de sesion
-const sessionMiddleware = session({
-	secret: config.SESSION_SECRET,
-	resave: false,
-	saveUninitialized: false,
-	store: MongoStore.create({
-		mongoUrl: config.MONGO_DB_URI,
-		collectionName: "sessions",
-	}),
-	cookie: {
-		httpOnly: true,
-		secure: true,
-		sameSite: 'none',
-		maxAge: 1000 * 60 * 60 * 24,
-	},
-});
-
-app.use(sessionMiddleware);
-io.engine.use(sessionMiddleware);
-
 // Auth(Passport)
-io.engine.use(passport.initialize());
-io.engine.use(passport.session());
 app.use(passport.initialize());
-app.use(passport.session());
 
 // Routes
 

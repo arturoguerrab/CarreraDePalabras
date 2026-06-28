@@ -16,7 +16,11 @@ export const SocketContextProvider = ({ children }) => {
 
     const URL =
       import.meta.env.VITE_REACT_APP_BACKEND_URL || "http://localhost:3000";
-    const newSocket = io(URL, { withCredentials: true, autoConnect: true });
+    const token = localStorage.getItem("token");
+    const newSocket = io(URL, { 
+      auth: { token },
+      autoConnect: true 
+    });
 
     newSocket.on("connect", () => {
       console.log(`Socket conectado: ${user.email} con ID: ${newSocket.id}`);

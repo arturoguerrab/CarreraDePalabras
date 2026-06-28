@@ -3,6 +3,7 @@ import crypto from "crypto";
 import User from "../models/userModel.js";
 import passport from "../passportConfig.js";
 import config from "../config/env.js";
+import { generateToken } from "../utils/jwtUtils.js";
 import {
 	sendVerificationEmail,
 	sendPasswordResetEmail,
@@ -71,8 +72,11 @@ export const registerUser = async (req, res, next) => {
 			verificationToken,
 		);
 
+		const token = generateToken(newUser._id);
+
 		res.status(201).json({
 			message: "Usuario registrado. Por favor verifica tu email.",
+			token,
 			user: formatUserResponse(newUser),
 		});
 	} catch (error) {
@@ -87,7 +91,7 @@ export const registerUser = async (req, res, next) => {
 
 // Inicio de sesion - Passport
 export const loginUser = (req, res, next) => {
-	passport.authenticate("local", (err, user, info) => {
+	passport.authenticate("local", { session: false }, (err, user, info) => {
 		if (err) return next(err);
 
 		if (!user) {
@@ -96,28 +100,24 @@ export const loginUser = (req, res, next) => {
 				.json({ message: info?.message || "Credenciales inválidas" });
 		}
 
-		req.logIn(user, (err) => {
-			if (err) return next(err);
+		const token = generateToken(user._id);
 
-			return res.status(200).json({
-				message: "Inicio de sesión exitoso",
-				user: formatUserResponse(user),
-			});
+		return res.status(200).json({
+			message: "Inicio de sesión exitoso",
+			token,
+			user: formatUserResponse(user),
 		});
 	})(req, res, next);
 };
 
 //Cierre de sesion
 export const logoutUser = (req, res, next) => {
-	req.logout((err) => {
-		if (err) return next(err);
-		res.json({ message: "Sesión cerrada exitosamente" });
-	});
+	res.json({ message: "Sesión cerrada exitosamente" });
 };
 
 //Obtener el usuario con sesion activa
 export const getUser = async (req, res) => {
-	if (req.isAuthenticated()) {
+	if (req.user) {
 		try {
 			// Verificar si el usuario tiene contraseña (Google users no tienen)
 			const userWithPwd = await User.findById(req.user._id).select("password");
@@ -137,7 +137,7 @@ export const getUser = async (req, res) => {
 
 // Asignar username
 export const setUsername = async (req, res, next) => {
-	if (!req.isAuthenticated()) {
+	if (!req.user) {
 		return res.status(401).json({ message: "No estás autenticado." });
 	}
 
@@ -175,17 +175,24 @@ export const setUsername = async (req, res, next) => {
 // Inicio de sesion con Google
 export const googleAuth = passport.authenticate("google", {
 	scope: ["profile", "email"],
+	session: false
 });
 
 // Google OAuth callback.
-export const googleAuthCallback = passport.authenticate("google", {
-	failureRedirect: `${config.CLIENT_URL}/login?error=google`,
-	successRedirect: `${config.CLIENT_URL}/lobby`,
-});
+export const googleAuthCallback = (req, res, next) => {
+	passport.authenticate("google", { session: false }, (err, user, info) => {
+		if (err || !user) {
+			return res.redirect(`${config.CLIENT_URL}/login?error=google`);
+		}
+		
+		const token = generateToken(user._id);
+		res.redirect(`${config.CLIENT_URL}/login?token=${token}`);
+	})(req, res, next);
+};
 
 // Actualizar perfil (Nombre, Apellido)
 export const updateProfile = async (req, res, next) => {
-	if (!req.isAuthenticated()) {
+	if (!req.user) {
 		return res.status(401).json({ message: "No estás autenticado." });
 	}
 
@@ -215,7 +222,7 @@ export const updateProfile = async (req, res, next) => {
 
 // Cambiar contraseña - Solo usuarios voluntarios
 export const changePassword = async (req, res, next) => {
-	if (!req.isAuthenticated()) {
+	if (!req.user) {
 		return res.status(401).json({ message: "No estás autenticado." });
 	}
 
@@ -284,7 +291,7 @@ export const verifyEmail = async (req, res, next) => {
 
 // Reenviar email de verificación
 export const resendVerification = async (req, res, next) => {
-	if (!req.isAuthenticated()) {
+	if (!req.user) {
 		return res.status(401).json({ message: "No estás autenticado." });
 	}
 
@@ -371,7 +378,7 @@ export const resetPassword = async (req, res, next) => {
 
 // Establecer contraseña - Solo usuarios de Google
 export const setPassword = async (req, res, next) => {
-	if (!req.isAuthenticated()) {
+	if (!req.user) {
 		return res.status(401).json({ message: "No estás autenticado." });
 	}
 

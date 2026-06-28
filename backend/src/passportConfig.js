@@ -5,19 +5,6 @@ import bcrypt from "bcryptjs";
 import User from "./models/userModel.js";
 import config from "./config/env.js";
 
-passport.serializeUser((user, done) => {
-	done(null, user._id);
-});
-
-passport.deserializeUser(async (_id, done) => {
-	try {
-		const user = await User.findById(_id);
-		done(null, user);
-	} catch (err) {
-		done(err, null);
-	}
-});
-
 // Local Strategy
 passport.use(
 	new LocalStrategy(
