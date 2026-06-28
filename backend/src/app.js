@@ -17,6 +17,7 @@ import { startCleanupJob } from "./services/cleanupService.js";
 // Inicio del APP
 const app = express();
 const httpServer = createServer(app);
+app.set('trust proxy', 1);
 
 // Config Socket.IO
 const io = new Server(httpServer, {
