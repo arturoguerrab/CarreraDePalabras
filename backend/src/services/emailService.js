@@ -51,7 +51,7 @@ export const sendVerificationEmail = async (email, name, token) => {
 		const verificationUrl = `${config.CLIENT_URL}/verify-email?token=${token}`;
 
 		const mailOptions = {
-			from: config.EMAIL.ALIAS || config.EMAIL.USER,
+			from: `Stopify Game <${config.EMAIL.USER}>`,
 			to: email,
 			subject: "Verifica tu cuenta - Stopify Game",
 			html: getEmailTemplate(
@@ -84,7 +84,7 @@ export const sendPasswordResetEmail = async (email, token) => {
 		const resetUrl = `${config.CLIENT_URL}/reset-password?token=${token}`;
 
 		const mailOptions = {
-			from: config.EMAIL.ALIAS || config.EMAIL.USER,
+			from: `Stopify Game <${config.EMAIL.USER}>`,
 			to: email,
 			subject: "Restablecer contraseña - Stopify Game",
 			html: getEmailTemplate(
